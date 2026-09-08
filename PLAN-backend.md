@@ -606,14 +606,21 @@ GDPR: износ и анонимизация по наемател, задърж
 ### 57. Elasticsearch инфраструктура и индекси
 `docker-compose` добавя Elasticsearch (single-node, само вътрешна мрежа) с
 healthcheck. Индекси, по един на тип обект (аналогично на `query_db` —
-не денормализирани изгледи): `search_clients`, `search_orders`,
-`search_vehicles`, `search_drivers`, `search_invoices`. Всеки документ носи
-`tenant_id` и полетата от етап 60.
+не денормализирани изгледи), всеки документ носи `tenant_id`:
+
+| Индекс | Извор | Полета | Защо |
+|---|---|---|---|
+| `search_clients` | `order_db.clients` | `name`, `eik`, `vat_number`, `country`, `address`, `is_blacklisted` (само филтър) | търсене на контрагент по име/ЕИК при създаване на курс |
+| `search_orders` | `order_db.orders` + `order_stops` | `order_no`, `external_ref`, денормализирано `client_name`, слепен текст от адресите на спирките, `status`, `driver_id`, `vehicle_id`, `agreed_price` | търсене по номер на курс, клиент или маршрут |
+| `search_vehicles` | `fleet_db.vehicles` | `plate`, `vin`, `make`, `model`, `type` | бърз lookup на камион/ремарке по рег. номер |
+| `search_drivers` | `fleet_db.drivers` | `first_name`, `last_name`, `phone` | търсене на шофьор при възлагане |
+| `search_invoices` | `billing_db.invoices` | `invoice_no`, денормализирано `client_name`, `status` | търсене на фактура по номер или клиент |
 
 Избрани за търсене, съзнателно: контрагенти, курсове, автопарк, шофьори,
-фактури — обектите, които се търсят по свободен текст в ежедневната работа
-(рег. номер, ЕИК, номер на курс/фактура, име). Документи за преглед на срокове
-и GPS данни остават само filter/list през Hasura — не са search обекти.
+фактури — обектите, които се търсят по свободен текст в ежедневната работа.
+Извън обхвата, съзнателно: `compliance_documents` (срокове — filter/list, не
+свободен текст), GPS точки (никога не се търсят текстово), `expenses`/
+`payments` (аналитика, не lookup — остават в `query-service`/Hasura).
 
 ### 58. `search-service` скелет + `tms-core/search`
 Нов библиотечен модул `tms-core/search`: обвивка над ES клиента, аналогична
