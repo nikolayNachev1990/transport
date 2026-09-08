@@ -4,7 +4,7 @@ export const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   "token",
   "refresh_token",
   "authorization",
-  "code",
+  "driver_code",
   "vat_number",
   "card_last4",
 ]);

@@ -31,14 +31,14 @@ pino-based logging with three things baked in from day one, not bolted on
 later:
 
 - **Redaction.** `password`, `password_hash`, `token`, `refresh_token`,
-  `authorization`, `code`, `vat_number`, `card_last4` are redacted at any
-  nesting depth, in objects and arrays, before serialization — a static
-  path list can't catch a shape nobody predicted, so this walks the whole
-  log object instead. Note: `code` here means secrets like the driver
-  login code (`driver_codes.code`), not the `code` field of the
-  `{ code, params, request_id }` error contract — an error response's
-  `code` (e.g. `"ORDER_INVALID_TRANSITION"`) will also get redacted if
-  logged verbatim. Worth knowing before stage 5 wires request logging.
+  `authorization`, `driver_code`, `vat_number`, `card_last4` are redacted
+  at any nesting depth, in objects and arrays, before serialization — a
+  static path list can't catch a shape nobody predicted, so this walks
+  the whole log object instead. The driver login code (`driver_codes`
+  table) is named `driver_code`, deliberately not the bare `code` used
+  by the public error contract (`{ code, params, request_id }`) — an
+  error `code` like `"ORDER_INVALID_TRANSITION"` is meant to be visible
+  in logs, so it must never collide with a redacted key name.
 - **Per-message context, never inherited.** `runWithContext(context, fn)`
   wraps `AsyncLocalStorage` and always starts a fresh context — it never
   merges with an outer one. Every Kafka message and BullMQ job handler

@@ -230,7 +230,7 @@ tenant_users(id, tenant_id, user_id, role, is_active)
    role: owner | transport_manager | dispatcher | accountant | driver
 refresh_tokens(id, user_id, tenant_id, token_hash, device_id, family_id,
                expires_at, revoked_at, replaced_by)
-driver_codes(id, tenant_id, driver_id, code, created_by, expires_at, used_at)
+driver_codes(id, tenant_id, driver_id, driver_code, created_by, expires_at, used_at)
 outbox(...)
 ```
 
@@ -255,7 +255,7 @@ Argon2id за паролите.
 Собственик, ръководител транспорт **или диспечър** генерира 6-знаков код
 за конкретен шофьор — валиден 72 часа, еднократен.
 
-`POST /v1/auth/driver/token` с `{ code, device_id }` → access + дълготраен refresh,
+`POST /v1/auth/driver/token` с `{ driver_code, device_id }` → access + дълготраен refresh,
 вързан за `device_id`. Без имейл, без парола.
 Собственикът вижда устройствата и отнема достъп с един бутон (анулира фамилията).
 

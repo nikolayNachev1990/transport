@@ -11,7 +11,7 @@ describe("redactSensitive", () => {
       token: "abc.def.ghi",
       refresh_token: "rt_123",
       authorization: "Bearer abc",
-      code: "482913",
+      driver_code: "482913",
       vat_number: "BG123456789",
       card_last4: "4242",
       driver_id: "d-1",
@@ -23,10 +23,20 @@ describe("redactSensitive", () => {
       token: REDACTED_VALUE,
       refresh_token: REDACTED_VALUE,
       authorization: REDACTED_VALUE,
-      code: REDACTED_VALUE,
+      driver_code: REDACTED_VALUE,
       vat_number: REDACTED_VALUE,
       card_last4: REDACTED_VALUE,
       driver_id: "d-1",
+    });
+  });
+
+  it("does not redact the public error-response code field, only driver_code", () => {
+    const result = redactSensitive({
+      error: { code: "ORDER_INVALID_TRANSITION", params: { from: "assigned" }, request_id: "r1" },
+    });
+
+    expect(result).toEqual({
+      error: { code: "ORDER_INVALID_TRANSITION", params: { from: "assigned" }, request_id: "r1" },
     });
   });
 
