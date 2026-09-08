@@ -10,7 +10,8 @@
   "scripts": {
     "lint": "eslint .",
     "format": "prettier --check .",
-    "typecheck": "pnpm -r --if-present run typecheck"
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",
