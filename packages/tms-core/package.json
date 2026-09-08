@@ -5,13 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.mts",
-    "./config": "./src/config/index.mts"
+    "./config": "./src/config/index.mts",
+    "./logger": "./src/logger/index.mts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
