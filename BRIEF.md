@@ -64,7 +64,7 @@ node:22-bookworm-slim        postgres:16-alpine       redis:7-alpine
 python:3.12-slim             nginx:1.27-alpine
 hasura/graphql-engine:v2.44.0
 redpandadata/redpanda:v24.2.7
-docker.elastic.co/elasticsearch/elasticsearch:8.15.3  → провери и потвърди тага при етап 57
+docker.elastic.co/elasticsearch/elasticsearch:9.5.3  (проверено през GitHub Releases на elastic/elasticsearch — реалният последен стабилен таг, не предположение)
 minio/minio  → фиксирай конкретния таг при първо дърпане
 ```
 Всички npm и pip зависимости се фиксират точно (без `^` и `~`).
