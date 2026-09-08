@@ -36,12 +36,18 @@ export function createLogger(serviceName: string, options: CreateLoggerOptions =
   const pinoOptions: pino.LoggerOptions = {
     level: options.level ?? "info",
     base: { service: serviceName },
+    // No pino `serializers` option here on purpose: our formatters.log runs
+    // its own redactSensitive walk first, which would see the raw Error
+    // (non-enumerable message/stack) before a registered serializer ever
+    // gets a turn. redactSensitive itself special-cases Error instances —
+    // see logger/redact.mts.
     mixin(): Record<string, unknown> {
       const context = getLogContext();
       return {
         ...(context.requestId !== undefined && { request_id: context.requestId }),
         ...(context.tenantId !== undefined && { tenant_id: context.tenantId }),
         ...(context.userId !== undefined && { user_id: context.userId }),
+        ...(context.role !== undefined && { role: context.role }),
       };
     },
     formatters: {

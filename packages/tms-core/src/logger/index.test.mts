@@ -44,6 +44,17 @@ describe("createLogger", () => {
     expect((destination.lines[0]?.["user"] as Record<string, unknown>)["password"]).toBe("[REDACTED]");
   });
 
+  it("serializes an Error passed under `err` — message/stack are non-enumerable, so they need pino's serializer, not just JSON.stringify", () => {
+    const destination = captureDestination();
+    const logger = createLogger("auth-service", { destination });
+
+    logger.error({ err: new Error("boom") }, "something failed");
+
+    const err = destination.lines[0]?.["err"] as { message?: string; stack?: string } | undefined;
+    expect(err?.message).toBe("boom");
+    expect(err?.stack).toContain("boom");
+  });
+
   it("forwards only fatal-level calls to the Slack provider", async () => {
     const destination = captureDestination();
     const slack: SlackProvider = { notify: vi.fn().mockResolvedValue(undefined) };

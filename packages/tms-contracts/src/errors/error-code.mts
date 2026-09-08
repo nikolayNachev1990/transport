@@ -7,6 +7,16 @@ export const ErrorCode = {
   DB_NOT_NULL_VIOLATION: "DB_NOT_NULL_VIOLATION",
   DB_QUERY_FAILED: "DB_QUERY_FAILED",
   DB_TENANT_CONTEXT_MISSING: "DB_TENANT_CONTEXT_MISSING",
+  AUTH_UNAUTHENTICATED: "AUTH_UNAUTHENTICATED",
+  AUTH_FORBIDDEN: "AUTH_FORBIDDEN",
+  VALIDATION_FAILED: "VALIDATION_FAILED",
+  INTERNAL_ROUTE_FORBIDDEN: "INTERNAL_ROUTE_FORBIDDEN",
+  SNAPSHOT_TABLE_NOT_DECLARED: "SNAPSHOT_TABLE_NOT_DECLARED",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+  // A framework-level 4xx that isn't ours to classify further (body too
+  // large, malformed JSON, unsupported method, ...) — still the client's
+  // fault, so it must not present as INTERNAL_ERROR/500.
+  HTTP_CLIENT_ERROR: "HTTP_CLIENT_ERROR",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

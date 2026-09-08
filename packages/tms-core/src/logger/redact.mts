@@ -25,7 +25,13 @@ export function redactSensitive(value: unknown, seen: WeakSet<object> = new Weak
     }
     seen.add(value);
 
-    const result: Record<string, unknown> = {};
+    // Error's message/stack are non-enumerable own properties, so a plain
+    // Object.entries walk below sees none of them and silently produces {}
+    // — pull them out explicitly first. Any *extra* enumerable props an
+    // error was given (err.details = {...}) still get walked/redacted below.
+    const base = value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : {};
+
+    const result: Record<string, unknown> = { ...base };
     for (const [key, entryValue] of Object.entries(value)) {
       result[key] = SENSITIVE_KEYS.has(key.toLowerCase())
         ? REDACTED_VALUE

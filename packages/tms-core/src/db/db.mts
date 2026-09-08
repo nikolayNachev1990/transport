@@ -81,6 +81,24 @@ export class Db {
     });
   }
 
+  // Deliberately named like rawUnsafe: bypasses tenant scoping entirely,
+  // regardless of table.tenantScoped. The one legitimate caller is the
+  // /internal/snapshot/:table route (see tms-core/http) — query-service's
+  // resync needs every tenant's rows, not one tenant's.
+  async findManyUnscoped<Row extends BaseRow>(
+    table: TableConfig<Row>,
+    options: { cursor?: string; limit: number },
+  ): Promise<Row[]> {
+    return this.run(async () => {
+      let query = this.table(table.name).orderBy("id", "asc").limit(options.limit);
+      if (options.cursor !== undefined) {
+        query = query.where("id", ">", options.cursor);
+      }
+      const rows: unknown = await query;
+      return rows as Row[];
+    });
+  }
+
   async insert<Row extends BaseRow>(table: TableConfig<Row>, data: InsertInput<Row>): Promise<Row> {
     return this.run(async () => {
       const payload = table.tenantScoped ? { ...data, tenant_id: requireTenantId() } : data;

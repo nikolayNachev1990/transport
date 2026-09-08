@@ -4,8 +4,7 @@ import { AppError, ErrorCode } from "tms-contracts";
 import { runWithContext } from "../logger/context.mjs";
 import { createDb, type Db } from "./db.mjs";
 import { defineTable, type BaseRow, type TenantScopedRow } from "./table.mjs";
-import { runMigrationCommand } from "./cli.mjs";
-import { testDatabaseUrl, MIGRATIONS_DIR } from "./__fixtures__/test-db.mjs";
+import { testDatabaseUrl } from "./__fixtures__/test-db.mjs";
 
 interface Widget extends TenantScopedRow {
   name: string;
@@ -26,14 +25,14 @@ const globalSettingsTable = defineTable<GlobalSetting>("test_global_settings", {
 
 let db: Db;
 
-beforeAll(async () => {
-  await runMigrationCommand("migrate:latest", { connectionString: testDatabaseUrl(), migrationsDir: MIGRATIONS_DIR });
+// Schema is created/dropped once for the whole test run by
+// vitest.global-setup.mts, not per file — see its comment for why.
+beforeAll(() => {
   db = createDb({ connectionString: testDatabaseUrl() });
 });
 
 afterAll(async () => {
   await db.destroy();
-  await runMigrationCommand("migrate:rollback", { connectionString: testDatabaseUrl(), migrationsDir: MIGRATIONS_DIR });
 });
 
 describe("tenant enforcement (requirement 1)", () => {
