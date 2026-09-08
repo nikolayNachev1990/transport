@@ -7,7 +7,7 @@ const schema = z.object({
 });
 
 describe("loadConfig", () => {
-  it("връща парснат обект при валидна env", () => {
+  it("returns the parsed object for valid env", () => {
     const config = loadConfig("auth-service", schema, {
       DATABASE_URL: "postgres://localhost:5432/auth_db",
       PORT: "3000",
@@ -19,12 +19,12 @@ describe("loadConfig", () => {
     });
   });
 
-  it("хвърля ConfigError с името на услугата при липсваща променлива", () => {
+  it("throws ConfigError naming the service when a variable is missing", () => {
     expect(() => loadConfig("auth-service", schema, {})).toThrow(ConfigError);
     expect(() => loadConfig("auth-service", schema, {})).toThrow(/auth-service/);
   });
 
-  it("изброява всички липсващи/невалидни полета наведнъж, не само първото", () => {
+  it("lists every missing/invalid field at once, not just the first", () => {
     try {
       loadConfig("auth-service", schema, { PORT: "not-a-number" });
       expect.unreachable();
@@ -36,7 +36,7 @@ describe("loadConfig", () => {
     }
   });
 
-  it("не пада при непознати допълнителни env променливи", () => {
+  it("does not fail on unrelated extra env variables", () => {
     const config = loadConfig("auth-service", schema, {
       DATABASE_URL: "postgres://localhost:5432/auth_db",
       PORT: "3000",

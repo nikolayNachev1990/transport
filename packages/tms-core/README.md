@@ -1,14 +1,14 @@
 # tms-core
 
-Споделена библиотека, върху която стъпва всяка услуга в монорепото. Не се
-пуска самостоятелно — импортва се от `services/*`.
+Shared library every service in the monorepo builds on. Not runnable on
+its own — imported by `services/*`.
 
 ## `config`
 
-Валидира env при старт на услугата с Zod. Липсваща или невалидна
-променлива хвърля `ConfigError` с точен списък кои полета и защо — ако
-никой не го хване, процесът пада с ясното съобщение (стандартно поведение
-на Node за необработено изключение).
+Validates env at service startup with Zod. A missing or invalid variable
+throws `ConfigError` listing exactly which fields and why — if uncaught,
+the process crashes with that clear message (Node's default behavior for
+an unhandled exception).
 
 ```ts
 import { loadConfig, z } from "tms-core";
@@ -18,14 +18,14 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive(),
 });
 
-// хвърля ConfigError, ако DATABASE_URL/PORT липсват или са невалидни
+// throws ConfigError if DATABASE_URL/PORT are missing or invalid
 const config = loadConfig("auth-service", schema);
 ```
 
-Конфигът се връща като обикновена стойност и се подава на модулите, които
-го ползват — няма глобален статик за него.
+The config is returned as a plain value and passed to whatever needs it —
+no global static holds it.
 
-## Разработка
+## Development
 
 ```
 pnpm --filter tms-core run typecheck
