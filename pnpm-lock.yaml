@@ -105,41 +105,84 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@eslint/js':
+      specifier: 10.0.1
+      version: 10.0.1
+    '@types/node':
+      specifier: 22.20.1
+      version: 22.20.1
+    '@typescript/native':
+      specifier: npm:typescript@7.0.2
+      version: 7.0.2
+    eslint:
+      specifier: 10.10.0
+      version: 10.10.0
+    eslint-config-prettier:
+      specifier: 10.1.8
+      version: 10.1.8
+    prettier:
+      specifier: 3.9.6
+      version: 3.9.6
+    typescript:
+      specifier: npm:@typescript/typescript6@6.0.2
+      version: 6.0.2
+    typescript-eslint:
+      specifier: 8.70.0
+      version: 8.70.0
+    vitest:
+      specifier: 5.0.0
+      version: 5.0.0
+
+overrides:
+  '@typescript/old': npm:typescript@6.0.3
+
 importers:
 
   .:
     devDependencies:
       '@eslint/js':
-        specifier: 10.0.1
+        specifier: 'catalog:'
         version: 10.0.1(eslint@10.10.0)
       '@types/node':
-        specifier: 22.20.1
+        specifier: 'catalog:'
         version: 22.20.1
       '@typescript/native':
-        specifier: npm:typescript@7.0.2
+        specifier: 'catalog:'
         version: typescript@7.0.2
       eslint:
-        specifier: 10.10.0
+        specifier: 'catalog:'
         version: 10.10.0
       eslint-config-prettier:
-        specifier: 10.1.8
+        specifier: 'catalog:'
         version: 10.1.8(eslint@10.10.0)
       prettier:
-        specifier: 3.9.6
+        specifier: 'catalog:'
         version: 3.9.6
       typescript:
-        specifier: npm:@typescript/typescript6@6.0.2
+        specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
       typescript-eslint:
-        specifier: 8.70.0
+        specifier: 'catalog:'
         version: 8.70.0(@typescript/typescript6@6.0.2)(eslint@10.10.0)
       vitest:
-        specifier: 5.0.0
+        specifier: 'catalog:'
         version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1))
 
   packages/tms-contracts: {}
 
-  packages/tms-core: {}
+  packages/tms-core:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1))
 
   services/ai-service: {}
 

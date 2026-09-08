@@ -2,5 +2,10 @@
   "name": "tms-core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
+    "vitest": "catalog:"
+  }
 }
