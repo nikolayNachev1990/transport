@@ -8,15 +8,18 @@
     "./config": "./src/config/index.mts",
     "./logger": "./src/logger/index.mts",
     "./db": "./src/db/index.mts",
-    "./http": "./src/http/index.mts"
+    "./http": "./src/http/index.mts",
+    "./events": "./src/events/index.mts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@confluentinc/kafka-javascript": "catalog:",
     "@fastify/swagger": "catalog:",
     "@fastify/swagger-ui": "catalog:",
+    "ajv": "catalog:",
     "fastify": "catalog:",
     "jsonwebtoken": "catalog:",
     "knex": "catalog:",

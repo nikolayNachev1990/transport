@@ -17,6 +17,11 @@ const DEFAULT_HTTP_STATUS: Partial<Record<ErrorCode, number>> = {
   [ErrorCode.INTERNAL_ROUTE_FORBIDDEN]: 401,
   [ErrorCode.SNAPSHOT_TABLE_NOT_DECLARED]: 404,
   [ErrorCode.INTERNAL_ERROR]: 500,
+  // All three are programmer errors in the producing service, not something
+  // a caller can react to — 500 by default like INTERNAL_ERROR.
+  [ErrorCode.EVENT_PUBLISH_OUTSIDE_TRANSACTION]: 500,
+  [ErrorCode.EVENT_SCHEMA_INVALID]: 500,
+  [ErrorCode.EVENT_NOT_DECLARED]: 500,
 };
 
 // Wire shape is { code, params, request_id } (request_id is attached at the

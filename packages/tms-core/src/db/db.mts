@@ -185,11 +185,13 @@ export class Db {
     return this.run(async () => {
       const filter = { ...where, ...this.tenantWhere(table) };
       const offset = (options.page - 1) * options.pageSize;
-      const [rows, total] = await Promise.all([
-        this.table(table.name).where(filter).limit(options.pageSize).offset(offset) as Promise<unknown>,
-        this.count(table, where),
-      ]);
-      return { rows: rows as Row[], total, page: options.page, pageSize: options.pageSize };
+      // Sequential, not Promise.all: inside an active transaction both
+      // queries would share one Postgres connection, which can only run
+      // one query at a time — concurrent queries on it aren't actually
+      // parallel and trigger pg's "already executing a query" warning.
+      const rows = (await this.table(table.name).where(filter).limit(options.pageSize).offset(offset)) as Row[];
+      const total = await this.count(table, where);
+      return { rows, total, page: options.page, pageSize: options.pageSize };
     });
   }
 

@@ -6,7 +6,9 @@ overrides:
   "@typescript/old": npm:typescript@6.0.3
 
 catalog:
+  "@confluentinc/kafka-javascript": 1.10.0
   "@eslint/js": 10.0.1
+  ajv: 8.20.0
   "@fastify/swagger": 9.8.1
   "@fastify/swagger-ui": 6.1.1
   "@types/jsonwebtoken": 9.0.10
@@ -38,3 +40,8 @@ minimumReleaseAgeExclude:
   - '@typescript-eslint/utils@8.70.0'
   - '@typescript-eslint/visitor-keys@8.70.0'
   - typescript-eslint@8.70.0
+
+allowBuilds:
+  # Confluent's official librdkafka bindings — postinstall fetches a
+  # prebuilt native binary (falls back to compiling from source).
+  '@confluentinc/kafka-javascript': true

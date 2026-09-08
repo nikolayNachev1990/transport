@@ -238,6 +238,90 @@ export default {
 } satisfies RestController;
 ```
 
+## `events`
+
+The transactional outbox: `publish()` writes to an `outbox` table, never to
+Kafka directly; a separate relay process reads the unpublished rows and
+sends them. Each half enforces its own half of that split:
+
+- **`publisher.mts` has no Kafka import, checked by a test that reads its
+  own source.** `publish()` only ever calls `db.insert(outboxTable, ...)`.
+- **`publish()` outside `withTransaction` throws
+  `EVENT_PUBLISH_OUTSIDE_TRANSACTION`.** Publishing standalone would let
+  the outbox row commit independently of whatever business write it's
+  meant to accompany — the entire point of the outbox pattern is that
+  they land together or not at all.
+- **The relay (`relay.mts`/`relay-runner.mts`/`bin.mts`) is its own
+  process** — `bin.mts` is a standalone entry point
+  (`node dist/events/bin.mjs`, `DATABASE_URL`/`KAFKA_BROKERS`/`EVENTS_TOPIC`
+  from env), looping on its own schedule. Never a timer started from
+  inside a writing service.
+- **`SELECT ... FOR UPDATE SKIP LOCKED`, plus a transaction-scoped Postgres
+  advisory lock keyed on `aggregate_id`.** SKIP LOCKED alone only protects
+  an already-locked *row* — two relay instances could still each grab a
+  different, not-yet-locked row of the *same* aggregate in the same
+  instant and publish them out of order. The advisory lock
+  (`pg_try_advisory_xact_lock(hashtext(aggregate_id))`) claims the whole
+  aggregate for one instance at a time; SKIP LOCKED on top is what stops
+  a second instance from double-publishing the row it's already sending.
+  One event per aggregate per transaction, not a batch — sending several
+  events inside one long-lived transaction means a failure on event N
+  would roll back the DB update for 1..N-1 too, even though those were
+  already, unrollbackably, sent to Kafka.
+- **Schema validated in `publish()`, with AJV, against the definition in
+  the shared `EventRegistry` (`tms-contracts`)** — not at consume time.
+  An invalid body throws `EVENT_SCHEMA_INVALID` and never reaches the
+  outbox table.
+- **A service not listed in an event's `producers` throws when
+  `createEventPublisher` is called** — at startup/bootstrap, not lazily
+  on the first `publish()` of that event type.
+- **`cleanupPublishedOutboxRows`** deletes rows that are both published
+  and older than a retention window — meant to run periodically (BullMQ
+  cron, PLAN-backend.md stage 51), not from the relay itself: delivery
+  and cleanup are different concerns with different failure modes.
+
+```ts
+import { createDb, createEventPublisher, runWithContext, defineTable, type TenantScopedRow } from "tms-core";
+import { eventRegistry } from "tms-contracts";
+
+const db = createDb({ connectionString: process.env.DATABASE_URL! });
+const publisher = createEventPublisher({
+  serviceName: "order-service",
+  events: ["order.created", "order.status_changed"], // checked against eventRegistry right now
+  registry: eventRegistry,
+  db,
+});
+
+await runWithContext({ tenantId }, () =>
+  db.withTransaction(async () => {
+    const order = await db.insert(ordersTable, { order_no: "ORD-1", status: "draft" });
+    await publisher.publish("order.created", order.id, order);
+  }),
+);
+```
+
+A gotcha worth knowing before writing more raw SQL anywhere in this
+package: **`Db.rawUnsafe`/knex's `.raw()` use `?` placeholders, not
+Postgres' native `$1`** — passing `$1` directly compiles but fails at
+runtime with `Expected 1 bindings, saw 0`, since knex counts `?`
+occurrences to match against the bindings array. Found the hard way while
+building the relay's advisory-lock queries.
+
+### Running the events tests locally
+
+Needs both Postgres and a real Redpanda — `docker-compose.test.yml` now
+starts both. One test (the broker-outage proof) actually stops and
+restarts the Redpanda container, so `fileParallelism: false` is set in
+`vitest.config.mts` for the whole package: anything else hitting the
+same broker while it's down would fail for an unrelated reason.
+
+```
+docker compose -f docker-compose.test.yml up -d
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55432/tms_test \
+TEST_KAFKA_BROKERS=localhost:59092 \
+pnpm --filter tms-core run test
+```
+
 ## Development
 
 ```

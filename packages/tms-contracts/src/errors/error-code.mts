@@ -17,6 +17,12 @@ export const ErrorCode = {
   // large, malformed JSON, unsupported method, ...) — still the client's
   // fault, so it must not present as INTERNAL_ERROR/500.
   HTTP_CLIENT_ERROR: "HTTP_CLIENT_ERROR",
+  // publish() called with no active tms-core/db transaction — the outbox
+  // row would commit independently of whatever business row it's meant to
+  // accompany, defeating the whole point of the outbox pattern.
+  EVENT_PUBLISH_OUTSIDE_TRANSACTION: "EVENT_PUBLISH_OUTSIDE_TRANSACTION",
+  EVENT_SCHEMA_INVALID: "EVENT_SCHEMA_INVALID",
+  EVENT_NOT_DECLARED: "EVENT_NOT_DECLARED",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
