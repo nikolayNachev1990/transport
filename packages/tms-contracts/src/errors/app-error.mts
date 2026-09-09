@@ -22,6 +22,9 @@ const DEFAULT_HTTP_STATUS: Partial<Record<ErrorCode, number>> = {
   [ErrorCode.EVENT_PUBLISH_OUTSIDE_TRANSACTION]: 500,
   [ErrorCode.EVENT_SCHEMA_INVALID]: 500,
   [ErrorCode.EVENT_NOT_DECLARED]: 500,
+  [ErrorCode.IDEMPOTENCY_IN_PROGRESS]: 409,
+  [ErrorCode.IDEMPOTENCY_BODY_MISMATCH]: 422,
+  [ErrorCode.IDEMPOTENCY_STORE_UNAVAILABLE]: 503,
 };
 
 // Wire shape is { code, params, request_id } (request_id is attached at the

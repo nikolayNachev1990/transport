@@ -32,11 +32,32 @@ export interface RestController {
   handler: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> | unknown;
 }
 
-// The storage contract stage 7 (tms-core/idempotence) implements against
-// Redis. Stage 5 only defines the interface and the middlewares slot that
-// wires a caller-supplied implementation in — no in-memory/no-op stand-in,
-// since a fake implementation would just be dead code until stage 7.
+// The storage contract tms-core/idempotence implements against Redis; this
+// stage only defines the interface and the `middlewares` slot a caller
+// plugs an implementation into. Real shape settled at stage 7 — claim/
+// complete/fail, not a plain get/set, because a same-key retry needs to
+// distinguish "still running" (409, don't touch) from "done" (replay the
+// stored response) from "different body" (422) from "failed" (may retry).
+export type IdempotencyStatus = "in_progress" | "completed" | "failed";
+
+export interface IdempotencyStoredResponse {
+  statusCode: number;
+  body: unknown;
+}
+
+export type IdempotencyClaimResult =
+  | { claimed: true }
+  | { claimed: false; reason: "body_mismatch" }
+  | { claimed: false; reason: "in_progress" }
+  | { claimed: false; reason: "completed"; response: IdempotencyStoredResponse };
+
 export interface IdempotencyStore {
-  get(key: string): Promise<{ statusCode: number; body: unknown } | null>;
-  set(key: string, response: { statusCode: number; body: unknown }): Promise<void>;
+  // Atomically: claims the key if free (or previously failed), or reports
+  // why it couldn't (in_progress / completed+response / body mismatch).
+  claim(key: string, bodyHash: string): Promise<IdempotencyClaimResult>;
+  // bodyHash again on complete/fail — the record must keep carrying it so a
+  // later claim() with a different body still 422s instead of losing the
+  // comparison once a key transitions out of in_progress.
+  complete(key: string, bodyHash: string, response: IdempotencyStoredResponse): Promise<void>;
+  fail(key: string, bodyHash: string): Promise<void>;
 }

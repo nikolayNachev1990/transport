@@ -9,7 +9,8 @@
     "./logger": "./src/logger/index.mts",
     "./db": "./src/db/index.mts",
     "./http": "./src/http/index.mts",
-    "./events": "./src/events/index.mts"
+    "./events": "./src/events/index.mts",
+    "./idempotence": "./src/idempotence/index.mts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -21,6 +22,7 @@
     "@fastify/swagger-ui": "catalog:",
     "ajv": "catalog:",
     "fastify": "catalog:",
+    "ioredis": "catalog:",
     "jsonwebtoken": "catalog:",
     "knex": "catalog:",
     "pg": "catalog:",

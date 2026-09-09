@@ -23,6 +23,14 @@ export const ErrorCode = {
   EVENT_PUBLISH_OUTSIDE_TRANSACTION: "EVENT_PUBLISH_OUTSIDE_TRANSACTION",
   EVENT_SCHEMA_INVALID: "EVENT_SCHEMA_INVALID",
   EVENT_NOT_DECLARED: "EVENT_NOT_DECLARED",
+  // A repeat request while the original is still running — refused
+  // immediately, never made to wait for the original to finish.
+  IDEMPOTENCY_IN_PROGRESS: "IDEMPOTENCY_IN_PROGRESS",
+  // Same Idempotency-Key, different request body.
+  IDEMPOTENCY_BODY_MISMATCH: "IDEMPOTENCY_BODY_MISMATCH",
+  // The idempotency store (Redis) is unreachable and this endpoint is
+  // configured fail-closed — refuse rather than risk a duplicate.
+  IDEMPOTENCY_STORE_UNAVAILABLE: "IDEMPOTENCY_STORE_UNAVAILABLE",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

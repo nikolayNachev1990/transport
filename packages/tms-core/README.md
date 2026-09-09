@@ -313,14 +313,78 @@ Needs both Postgres and a real Redpanda — `docker-compose.test.yml` now
 starts both. One test (the broker-outage proof) actually stops and
 restarts the Redpanda container, so `fileParallelism: false` is set in
 `vitest.config.mts` for the whole package: anything else hitting the
-same broker while it's down would fail for an unrelated reason.
+same broker while it's down would fail for an unrelated reason. The same
+goes for Redis and the idempotence tests below.
 
 ```
 docker compose -f docker-compose.test.yml up -d
 TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55432/tms_test \
 TEST_KAFKA_BROKERS=localhost:59092 \
+TEST_REDIS_URL=redis://localhost:56379 \
 pnpm --filter tms-core run test
 ```
+
+## `idempotence`
+
+Redis-backed `Idempotency-Key` support for REST writes. **Not** the
+consumer side — a projection's `event_id` check belongs in
+`processed_events`, in the same Postgres transaction as the projection
+itself (PLAN-backend.md stage 19), because that's the one thing Redis
+structurally can't give it. Redis idempotency and transactional
+idempotency solve different problems; this module is only the first one.
+
+- **The key is claimed with a single atomic Redis `EVAL`
+  (`SET`-if-absent-or-failed), before any work runs — never written
+  after.** A plain "check, then set" would race two simultaneous
+  requests with the same key straight past each other. Tested for real:
+  two concurrent `claim()` calls on the same fresh key, exactly one
+  wins.
+- **Three states — `in_progress`, `completed`, `failed`.** A repeat
+  while `in_progress` gets `409` immediately (checked to be well under
+  the first request's own processing time — never made to wait for it).
+  `completed` replays the exact stored `{statusCode, body}`, not an
+  empty `200`. `failed` (an uncaught exception — not a deliberate 4xx,
+  which is itself a valid, cacheable outcome) allows the same key to be
+  reclaimed, since the underlying side effect's outcome is unknown.
+- **Body hash tied to the key.** A repeat with the same key but a
+  different body is `422` `IDEMPOTENCY_BODY_MISMATCH`, checked at every
+  state (in_progress, completed, and failed) — reusing a key for a
+  different request is a client bug, not a retry, ever.
+- **Key scope is `tenant_id` + endpoint (route pattern) + the header
+  value.** The same literal `Idempotency-Key` from two different
+  tenants, or on two different endpoints, never collides.
+- **Redis-down behavior is configurable per endpoint.**
+  `onRedisUnavailable: "fail-closed"` refuses the request (`503`) —
+  a money endpoint would rather refuse than risk a duplicate charge.
+  `"fail-open"` proceeds without protection — a file upload shouldn't go
+  down because Redis hiccuped. Tested for real: the Redis container
+  stopped mid-test, both policies exercised, then restarted.
+
+Wired into `RestController.middlewares` (the slot stage 5 defined, with
+no implementation, for exactly this):
+
+```ts
+import { createRedisIdempotencyStore, createIdempotencyMiddleware } from "tms-core";
+import Redis from "ioredis";
+
+const store = createRedisIdempotencyStore({ redis: new Redis(process.env.REDIS_URL!) });
+
+export default {
+  route: "/invoices",
+  method: "POST",
+  auth: { roles: ["accountant"] },
+  schema: { response: { 201: { type: "object" } } },
+  middlewares: [
+    createIdempotencyMiddleware({ store, endpointName: "POST /invoices", onRedisUnavailable: "fail-closed" }),
+  ],
+  handler: async (request, reply) => {
+    // no idempotency logic here — the middleware already handled the repeat
+  },
+} satisfies RestController;
+```
+
+A request with no `Idempotency-Key` header is never deduplicated — it's
+opt-in per request, not mandatory per endpoint.
 
 ## Development
 
