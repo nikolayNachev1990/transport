@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { EventRegistry } from "tms-contracts";
@@ -34,15 +32,14 @@ afterAll(async () => {
   await db.destroy();
 });
 
-describe("requirement 1: no Kafka client in the write module", () => {
-  it("publisher.mts has no import statement naming a kafka package (comments mentioning it don't count)", () => {
-    const source = readFileSync(fileURLToPath(new URL("./publisher.mts", import.meta.url)), "utf8");
-    const importLines = source
-      .split("\n")
-      .filter((line) => /^\s*import\b/.test(line));
-    expect(importLines.some((line) => /kafka/i.test(line))).toBe(false);
-  });
-});
+// Requirement 1 (no Kafka client in the write module) used to be checked
+// here by reading publisher.mts's own source for the substring "kafka" —
+// fragile twice over: it flagged this very file's explanatory comments,
+// and it couldn't have caught an indirect import (publisher.mts importing
+// some other local file that itself pulled in a Kafka client). Replaced
+// with an eslint.config.mjs `no-restricted-imports` rule covering every
+// file under tms-core/src except relay.mts/consumer.mts — real, transitive
+// enforcement via `pnpm lint`, not a text search in a unit test.
 
 describe("requirement 7: a service not declared as a producer throws at startup", () => {
   it("throws immediately when creating the publisher, not on first publish()", () => {
