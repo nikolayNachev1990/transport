@@ -426,7 +426,17 @@ files(id, tenant_id, bucket, key, mime, size, sha256, uploaded_by,
       entity_type, entity_id, status, created_at)
 ```
 `POST /v1/files/upload-url` → подписан URL към R2. Клиентът качва **директно**.
-После `POST /v1/files/:id/complete`. Проверка на типа по magic bytes, лимит 20 MB.
+После `POST /v1/files/:id/complete`. Лимит 20 MB.
+
+**Проверката по magic bytes е единствената проверка на типа, не
+допълнителна** — виж находката от етап 8: presigned URL подписът не налага
+`Content-Type` (нито R2, нито MinIO го гарантират по проверим начин), а
+`tms-core/storage`'s `head()` връща `Content-Type`, какъвто клиентът го е
+обявил при качването, не какъвто действително е файлът — т.е. и на него не
+се вярва за целите на типа. `mime` в таблицата по-горе се попълва от
+резултата на magic-byte проверката (при `/complete`), не от `head()` и не от
+това, което клиентът е обявил при генериране на upload URL-а.
+
 Custom domain на R2, за да изглежда като твой хост.
 
 ### 29. `doc-service` (Python, FastAPI)
