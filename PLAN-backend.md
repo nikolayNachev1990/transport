@@ -226,8 +226,22 @@ Redis, само за REST: `restIdempotence` по `Idempotency-Key`.
 
 ### 8. `tms-core/storage`
 Cloudflare R2 (S3 API), MinIO локално.
-`getUploadUrl()` и `getDownloadUrl()` с валидност 15 мин.
+`getUploadUrl()` (15 мин) и `getDownloadUrl()` (5 мин) — презаписани PUT
+презаписи, не POST-policy (R2 не поддържа `POST`). Модулът не пипа байтове:
+само `getUploadUrl`, `getDownloadUrl`, `head`, `delete`.
 **Файловете никога не минават през услуга или nginx.**
+Ключ: `{tenant_id}/{entity_type}/{uuid}/{random}.{ext}` — непредположим.
+Триене: меко (tag + bucket lifecycle правило) по подразбиране; твърдо само
+за неуспешни/изоставени качвания.
+
+**Важно за `files-service` (етап 28):** `Content-Length` реално се
+проверява от хранилището при качване (потвърдено срещу MinIO). `Content-Type`
+— **не**: AWS SDK v3 изключва `content-type` от подписа безусловно за S3
+(потвърдено и през теста, и през кода на SDK-то); Cloudflare твърдят, че R2
+го налага, но това не е проверимо тук без реален R2 акаунт. Затова
+`files-service` **трябва** да вика `head()` след качване и да третира
+върнатия `content_type` като единствения източник на истина — никога
+стойността, поискана при генериране на upload URL-а.
 
 ### 9. `tms-core/jobs` и `tms-core/bootstrap`
 BullMQ обвивка. Bootstrap стартира модулите по ред спрямо конфига,

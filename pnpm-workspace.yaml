@@ -6,6 +6,8 @@ overrides:
   "@typescript/old": npm:typescript@6.0.3
 
 catalog:
+  "@aws-sdk/client-s3": 3.1128.0
+  "@aws-sdk/s3-request-presigner": 3.1128.0
   "@confluentinc/kafka-javascript": 1.10.0
   "@eslint/js": 10.0.1
   ajv: 8.20.0
@@ -41,6 +43,8 @@ minimumReleaseAgeExclude:
   - '@typescript-eslint/utils@8.70.0'
   - '@typescript-eslint/visitor-keys@8.70.0'
   - typescript-eslint@8.70.0
+  - '@aws-sdk/client-s3@3.1128.0'
+  - '@aws-sdk/s3-request-presigner@3.1128.0'
 
 allowBuilds:
   # Confluent's official librdkafka bindings — postinstall fetches a

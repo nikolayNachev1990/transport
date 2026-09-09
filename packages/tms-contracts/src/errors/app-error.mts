@@ -25,6 +25,7 @@ const DEFAULT_HTTP_STATUS: Partial<Record<ErrorCode, number>> = {
   [ErrorCode.IDEMPOTENCY_IN_PROGRESS]: 409,
   [ErrorCode.IDEMPOTENCY_BODY_MISMATCH]: 422,
   [ErrorCode.IDEMPOTENCY_STORE_UNAVAILABLE]: 503,
+  [ErrorCode.STORAGE_OPERATION_FAILED]: 500,
 };
 
 // Wire shape is { code, params, request_id } (request_id is attached at the

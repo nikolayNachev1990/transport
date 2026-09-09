@@ -386,6 +386,108 @@ export default {
 A request with no `Idempotency-Key` header is never deduplicated — it's
 opt-in per request, not mandatory per endpoint.
 
+## `storage`
+
+Presigned S3-API URLs (Cloudflare R2 in production, MinIO locally) —
+files never pass through a service or nginx. The module's whole surface
+is `getUploadUrl`, `getDownloadUrl`, `head`, `delete`: no function
+anywhere takes or returns a byte.
+
+- **Content-Length is genuinely signed and enforced by the storage
+  service** — verified against real MinIO: a `PUT` whose body doesn't
+  match the `ContentLength` given to `getUploadUrl` comes back `403
+  SignatureDoesNotMatch` before a single byte of it is kept.
+- **⚠️ Content-Type is *not* enforced by the signature, on MinIO, with
+  the current AWS SDK v3 — confirmed by both testing and reading the
+  SDK source, not assumed.** `@aws-sdk/s3-request-presigner`'s
+  `S3RequestPresigner.prepareRequest` unconditionally does
+  `unsignableHeaders.add("content-type")` for every S3-family
+  presigned request — there is no supported option (`hoistableHeaders`,
+  `unhoistableHeaders`) that overrides this; a manual low-level
+  `@smithy/signature-v4` signer that forces `content-type` into
+  `hoistableHeaders` moves it into the presigned URL's *query string*,
+  but MinIO doesn't cross-check that value against the request's actual
+  header either — a client can send any `Content-Type` it wants and
+  MinIO accepts it. Cloudflare's own R2 docs show the identical
+  `ContentType`-on-`PutObjectCommand` code and claim R2 *does* enforce
+  it — if true, that has to be R2-specific server-side validation
+  outside the SigV4 signature itself, since the SDK never actually
+  signs the header either way. Unverified here — no real R2 account to
+  test against, only MinIO.
+  - **This is why `head()` (requirement 4) is mandatory, not optional:
+    it's the actual Content-Type check**, reading back what the
+    storage service really recorded — which reflects whatever the
+    client's real upload request declared, signed or not — rather than
+    trusting the value the caller originally asked to sign. A service
+    calling `getUploadUrl` must treat `head()`'s result as the source
+    of truth and reject/soft-delete the object if it doesn't match,
+    every time, on every provider — not only on MinIO.
+  - Per PLAN-backend.md stage 8: since a presigned-POST fallback isn't
+    supported by R2 either (`POST` uploads aren't implemented — see
+    R2's S3 API docs), presigned **`PUT`** stays the only upload
+    mechanism regardless; this finding doesn't change that choice, only
+    what actually has to be checked and where.
+- **Key shape:** `{tenant_id}/{entity_type}/{uuid}/{random}.{ext}` —
+  unpredictable; nothing about one key is derivable from another, an
+  entity id, or a sequence.
+- **TTLs:** upload 15 minutes, download 5 minutes, both overridable.
+  Tested for real with a 1-second TTL: the URL genuinely stops working
+  once it expires, not just a number this module returns.
+- **Delete is soft by default** (`delete(key, "soft")` tags the object
+  `deleted=true` — a bucket lifecycle rule, configured at bucket
+  provisioning time, is what actually expires it later; see below).
+  **Hard delete exists only for abandoned uploads**
+  (`delete(key, "incomplete_upload")`, a real `DeleteObject`) — for a
+  key that was signed and never confirmed, where there's no business
+  data to preserve. Nothing in this module decides which reason
+  applies; that's the caller's call, tracked in its own database (e.g.
+  `files-service`'s `status` column, PLAN-backend.md stage 28).
+
+Required bucket lifecycle rule (applied once, at bucket provisioning —
+not something this module configures at runtime):
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "expire-soft-deleted",
+      "Status": "Enabled",
+      "Filter": { "Tag": { "Key": "deleted", "Value": "true" } },
+      "Expiration": { "Days": 30 }
+    }
+  ]
+}
+```
+
+```ts
+import { createStorage } from "tms-core";
+
+const storage = createStorage({
+  endpoint: process.env.STORAGE_ENDPOINT!, // R2 account endpoint, or MinIO locally
+  accessKeyId: process.env.STORAGE_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY!,
+  bucket: process.env.STORAGE_BUCKET!,
+  forcePathStyle: true, // MinIO needs this; harmless on R2
+});
+
+const { key, url } = await storage.getUploadUrl({
+  tenantId,
+  entityType: "compliance_documents",
+  extension: "jpg",
+  contentType: "image/jpeg",
+  contentLength: fileSize,
+});
+// client uploads directly to `url`; caller later calls storage.head(key)
+// to confirm what was actually stored before marking anything complete
+```
+
+### Running the storage tests locally
+
+```
+docker compose -f docker-compose.test.yml up -d
+TEST_MINIO_ENDPOINT=http://localhost:59000 pnpm --filter tms-core run test
+```
+
 ## Development
 
 ```

@@ -76,7 +76,7 @@ python:3.12-slim             nginx:1.27-alpine
 hasura/graphql-engine:v2.44.0
 redpandadata/redpanda:v24.2.7
 docker.elastic.co/elasticsearch/elasticsearch:9.5.3  (проверено през GitHub Releases на elastic/elasticsearch — реалният последен стабилен таг, не предположение)
-minio/minio  → фиксирай конкретния таг при първо дърпане
+minio/minio:RELEASE.2025-09-07T16-13-09Z  (проверено реално на Docker Hub — MinIO спря да публикува всеки GitHub release там; последният по-нов GitHub тег, RELEASE.2025-10-15, няма съответен docker image)
 ```
 Всички npm и pip зависимости се фиксират точно (без `^` и `~`).
 Lock файловете влизат в git.

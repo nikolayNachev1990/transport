@@ -4,3 +4,4 @@ export * from "./db/index.mjs";
 export * from "./http/index.mjs";
 export * from "./events/index.mjs";
 export * from "./idempotence/index.mjs";
+export * from "./storage/index.mjs";

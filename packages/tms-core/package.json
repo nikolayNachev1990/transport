@@ -10,13 +10,16 @@
     "./db": "./src/db/index.mts",
     "./http": "./src/http/index.mts",
     "./events": "./src/events/index.mts",
-    "./idempotence": "./src/idempotence/index.mts"
+    "./idempotence": "./src/idempotence/index.mts",
+    "./storage": "./src/storage/index.mts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/s3-request-presigner": "catalog:",
     "@confluentinc/kafka-javascript": "catalog:",
     "@fastify/swagger": "catalog:",
     "@fastify/swagger-ui": "catalog:",

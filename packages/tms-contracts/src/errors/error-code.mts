@@ -31,6 +31,10 @@ export const ErrorCode = {
   // The idempotency store (Redis) is unreachable and this endpoint is
   // configured fail-closed — refuse rather than risk a duplicate.
   IDEMPOTENCY_STORE_UNAVAILABLE: "IDEMPOTENCY_STORE_UNAVAILABLE",
+  // Anything from the S3-compatible client that isn't "object not found"
+  // (that case returns null from head(), per BRIEF.md's null-means-no-row
+  // convention) — network/auth/unexpected failures, never leaked raw.
+  STORAGE_OPERATION_FAILED: "STORAGE_OPERATION_FAILED",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
