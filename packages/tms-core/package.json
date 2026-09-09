@@ -11,7 +11,9 @@
     "./http": "./src/http/index.mts",
     "./events": "./src/events/index.mts",
     "./idempotence": "./src/idempotence/index.mts",
-    "./storage": "./src/storage/index.mts"
+    "./storage": "./src/storage/index.mts",
+    "./jobs": "./src/jobs/index.mts",
+    "./bootstrap": "./src/bootstrap/index.mts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -24,6 +26,7 @@
     "@fastify/swagger": "catalog:",
     "@fastify/swagger-ui": "catalog:",
     "ajv": "catalog:",
+    "bullmq": "catalog:",
     "fastify": "catalog:",
     "ioredis": "catalog:",
     "jsonwebtoken": "catalog:",

@@ -11,6 +11,7 @@ catalog:
   "@confluentinc/kafka-javascript": 1.10.0
   "@eslint/js": 10.0.1
   ajv: 8.20.0
+  bullmq: 6.3.4
   "@fastify/swagger": 9.8.1
   "@fastify/swagger-ui": 6.1.1
   "@types/jsonwebtoken": 9.0.10
@@ -50,3 +51,7 @@ allowBuilds:
   # Confluent's official librdkafka bindings — postinstall fetches a
   # prebuilt native binary (falls back to compiling from source).
   '@confluentinc/kafka-javascript': true
+  # BullMQ's msgpack serializer — prebuilt native speedup, pure-JS fallback
+  # if the build is skipped, so this is a performance opt-in, not a hard
+  # requirement.
+  msgpackr-extract: true

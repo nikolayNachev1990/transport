@@ -488,6 +488,119 @@ docker compose -f docker-compose.test.yml up -d
 TEST_MINIO_ENDPOINT=http://localhost:59000 pnpm --filter tms-core run test
 ```
 
+## `bootstrap`
+
+Orchestrates a service's whole lifecycle: startup order, ordered
+shutdown, `/health` vs `/ready`, and process-signal handling. A service
+entrypoint builds a `BootstrapModule[]` (each with `name`, `start()`,
+`stop()`) in the order things should come up, and hands it to
+`createBootstrap`.
+
+- **Shutdown is the exact reverse of startup** — modules given as
+  `[redis, db, consumer, http]` start in that order and stop as `[http,
+  consumer, db, redis]`. New requests stop before current ones finish,
+  which stop before consumers, which stop before the database and
+  Redis close.
+- **A 30-second shutdown timeout (overridable) forces a non-zero exit**
+  if the sequence doesn't finish in time, logging fatally which module
+  it was stuck on and which modules were never even reached.
+- **`isReady()` flips to `false` synchronously the instant `stop()` is
+  called** — before a single module has actually stopped — so a load
+  balancer stops routing new traffic immediately. `isHealthy()` stays
+  `true` for the whole drain, only going false if the process is
+  actually forced to exit. `registerHealthRoutes(app, healthState)`
+  wires this into real `GET /health` / `GET /ready` endpoints.
+- **A startup failure in any module crashes the process** — whatever
+  already started gets unwound in reverse (best-effort), and the
+  thrown `ModuleStartError` names exactly which module failed. There's
+  no path to a partially-running service.
+- `installShutdownSignalHandlers({ bootstrap, logger })` wires
+  `SIGTERM`/`SIGINT` to `bootstrap.stop()`, and `unhandledRejection` /
+  `uncaughtException` to the same graceful shutdown — the latter also
+  schedules a 5-second hard `process.exit(1)` backstop, since an
+  uncaught exception means the process's state can no longer be
+  trusted to keep draining correctly.
+
+```ts
+import { createBootstrap, installShutdownSignalHandlers, registerHealthRoutes } from "tms-core";
+
+const bootstrap = createBootstrap({
+  modules: [redisModule, dbModule, consumerModule, httpModule],
+  logger,
+});
+
+registerHealthRoutes(app, bootstrap.healthState);
+installShutdownSignalHandlers({ bootstrap, logger });
+await bootstrap.start(); // throws and crashes the process if anything fails
+```
+
+## `jobs`
+
+BullMQ queues and workers with the retry/backoff/dead-letter discipline
+baked in, plus a `BootstrapModule`-shaped worker so it plugs directly
+into the same startup/shutdown order as everything else (a worker is
+just another module between the database and the HTTP server in the
+list given to `createBootstrap`).
+
+- **Every job gets a retry limit and exponential backoff by default**
+  (5 attempts, 2s initial delay) — there's no `add()` call that skips
+  this, unlike raw BullMQ where omitting `attempts` means "try once."
+  Both are overridable per-queue or per-job.
+- **A job that exhausts its attempts is copied into a companion
+  `<queue>-dead-letter` queue** (`{ originalData, error, failedAt }`)
+  for manual inspection/replay, rather than disappearing into BullMQ's
+  generic failed set. Verified against real Redis: a processor that
+  always throws, with `attempts: 2`, lands its job in the dead-letter
+  queue once, with the original data intact.
+- **Repeatable jobs use `upsertJobScheduler`, not `add()`'s `repeat`
+  option** (BullMQ 6 moved dedicated scheduler management there) — its
+  upsert semantics are what make two callers registering the "same"
+  `jobId` converge on one schedule instead of silently creating two.
+  **Verified with two concurrent `JobQueue` instances** (simulating two
+  service replicas racing on startup) calling `addRepeatable` with the
+  same `jobId` at the same time: `getJobSchedulersCount()` confirms
+  exactly one scheduler exists afterward, not per documentation.
+- `createJobWorker`'s `start()` deliberately does **not** `await
+  worker.run()` — BullMQ's own `run()` only resolves once the worker's
+  main loop exits (i.e. on close), the same way its `autorun: true`
+  path never awaits it internally either. Awaiting it here would hang
+  `start()` forever; caught by a real worker test that never resolved
+  until this was fixed.
+- The connection passed in must set `maxRetriesPerRequest: null`
+  (BullMQ's own requirement for connections it manages) — this module
+  doesn't inject that for you, since `ConnectionOptions` can also be a
+  live `ioredis`/`Cluster` instance that isn't safe to merge options
+  into; the caller's job, same as `tms-core/db`'s tenant scoping is the
+  caller's job to invoke correctly.
+
+```ts
+import { createJobQueue, createJobWorker } from "tms-core";
+
+const queue = createJobQueue<{ orderId: string }>({
+  name: "order-notifications",
+  connection: { host, port, maxRetriesPerRequest: null },
+});
+await queue.add("notify-driver", { orderId });
+await queue.addRepeatable("daily-summary", {}, { jobId: "daily-summary", everyMs: 86_400_000 });
+
+const worker = createJobWorker<{ orderId: string }>({
+  queueName: "order-notifications",
+  connection: { host, port, maxRetriesPerRequest: null },
+  logger,
+  processor: async (data, jobName) => {
+    /* ... */
+  },
+});
+// worker is a BootstrapModule — add it to createBootstrap's modules list
+```
+
+### Running the bootstrap/jobs tests locally
+
+```
+docker compose -f docker-compose.test.yml up -d redis
+TEST_REDIS_URL=redis://localhost:56379 pnpm --filter tms-core run test
+```
+
 ## Development
 
 ```
