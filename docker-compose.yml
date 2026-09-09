@@ -1,0 +1,143 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      FLEET_DB_PASSWORD: ${FLEET_DB_PASSWORD}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD}
+      FILES_DB_PASSWORD: ${FILES_DB_PASSWORD}
+      TRACK_DB_PASSWORD: ${TRACK_DB_PASSWORD}
+      ROUTING_DB_PASSWORD: ${ROUTING_DB_PASSWORD}
+      NOTIFY_DB_PASSWORD: ${NOTIFY_DB_PASSWORD}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD}
+      QUERY_DB_PASSWORD: ${QUERY_DB_PASSWORD}
+      HASURA_DB_PASSWORD: ${HASURA_DB_PASSWORD}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # --appendonly yes: without it the mounted volume is decorative —
+    # redis:alpine doesn't persist to disk by default, verified for real
+    # (a bare container writes nothing under /data until this flag is
+    # set), which is exactly the class of bug ("volume that doesn't
+    # actually capture the service's data") to not repeat here.
+    command: ["redis-server", "--appendonly", "yes"]
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --overprovisioned
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      # Other containers reach this over the internal Docker network by
+      # service name, not localhost — this is the production compose,
+      # nothing connects from the host.
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --check=false
+      # Off by default per the old reference config's
+      # KAFKA_AUTO_CREATE_TOPICS_ENABLE: true — a producer typo would
+      # silently create a garbage topic instead of failing loudly. Topics
+      # are created deliberately, matching the schemas declared in
+      # tms-contracts. Verified for real: Redpanda's own default for
+      # this is `true`, same footgun under a different name; this flag
+      # actually turns it off.
+      - --set redpanda.auto_create_topics_enabled=false
+    expose:
+      - "9092"
+      - "9644"
+    volumes:
+      # The real data directory, read out of redpanda's own default
+      # config inside the image — not assumed. Mounting the wrong path
+      # here is exactly the silent-data-loss bug flagged in the old
+      # reference config (KAFKA_LOG_DIRS vs. a differently-pathed
+      # volume).
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    expose:
+      - "9000"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  hasura:
+    image: hasura/graphql-engine:v2.44.0
+    environment:
+      # Separate from HASURA_GRAPHQL_DATABASE_URL on purpose — see
+      # postgres/init/01-create-service-databases.sh for why Hasura's own
+      # catalog can't live inside query_db.
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://hasura:${HASURA_DB_PASSWORD}@postgres:5432/hasura_metadata_db
+      HASURA_GRAPHQL_DATABASE_URL: postgres://hasura:${HASURA_DB_PASSWORD}@postgres:5432/query_db
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET}
+      # No metadata, no tracked tables, no permissions yet — stage 22.
+      # This stage only proves the skeleton connects and comes up
+      # healthy.
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
+      HASURA_GRAPHQL_DEV_MODE: "false"
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      hasura:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:
+  redis_data:
+  redpanda_data:
+  minio_data:
