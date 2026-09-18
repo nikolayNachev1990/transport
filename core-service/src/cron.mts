@@ -18,6 +18,7 @@ const schedules: Schedule[] = [
   { topic: "uploads.clear.queue", expression: "0 * * * *" }, // every hour
   { topic: "company.subscription_expiry.tick", expression: "0 * * * *" }, // every hour
   { topic: "companyMembers.checksum.tick", expression: "0 3 * * *" }, // nightly at 03:00
+  { topic: "tick.fleet.compliance.daily", expression: "0 4 * * *" }, // nightly at 04:00
 ];
 
 export function startCrons(): void {

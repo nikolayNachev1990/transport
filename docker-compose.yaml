@@ -448,6 +448,8 @@ services:
       KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
       FLEET_KAFKA_GROUP: ${FLEET_KAFKA_GROUP}
       FLEET_KAFKA_GROUP_ID: ${FLEET_KAFKA_GROUP_ID}
+      FLEET_ENCRYPTION_KEY: ${FLEET_ENCRYPTION_KEY}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
       PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
 
   # Fleet Service Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::

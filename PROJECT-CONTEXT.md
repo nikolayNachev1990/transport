@@ -58,7 +58,7 @@ Never demotes a role and never deletes — **deactivates by recency** (newest-cr
 
 Explicitly out of scope this round, "just don't let the schema block it": a phone-based (E.164) invite flow separate from the email/password one above, SMS code hashed with TTL + attempt/send limits + a per-tenant cost log (per the deletion rule already built), `drivers_created_count` incremented on invite and decremented on expiry/cancellation (mirroring `users_created_count`'s own NULL→value transition guard). `company_role = "driver"` is deliberately rejected by both `company_user_create` and `company_user_role_update` today — do not just remove that check when building this; the whole flow needs its own mutation, matching the phone/SMS shape, not a variant of the email one.
 
-## fleet-service: STATE = Etap 2 done (of 8 — see SPEC-fleet-service.md §17)
+## fleet-service: STATE = Etap 6 done (of 8 — see SPEC-fleet-service.md §17)
 
 New service, `fleet-db`, structured exactly like company-service (own Dockerfile, `core` host
 symlink + `.dockerignore` entries, `config/{db,server,broker}.mts`, `resources.mts` with no S3 —
@@ -147,5 +147,108 @@ within fleet-service's own transaction.
 code and the registry didn't have one) — added to the spec file directly, documented here rather than
 asked about, since it's a pure additive extension with no conflicting semantics.
 
-**Next up:** Etap 3 — combinations (tractor + trailer), vehicle_drivers (both limits: per-vehicle and
-per-driver), driver profile.
+### Etap 3: combinations, vehicle_drivers, driver profile — done
+
+`combinations` (tractor+trailer, `tstzrange` + `EXCLUDE`), `vehicle_drivers` (two independent limits:
+`MAX_DRIVERS_PER_VEHICLE=4` and 2-vehicles-per-driver-max-1-primary, both enforced with `FOR UPDATE`
+row locks plus DB-level `EXCLUDE` constraints as the hard backstop), `driver_profiles` (field-level
+AES-256-GCM encryption for `personal_number`, new `core/crypt` functions — `encryptField`/
+`decryptField`/`encryptionKeyFromHex` — plus `fleet_reveal_number`, itself an audited action).
+
+**Bug found:** the three `vehicle_drivers` `EXCLUDE` constraints (same-driver-twice-on-vehicle,
+one-primary-per-vehicle, one-primary-per-driver) were all being caught and mapped to the same generic
+`FLEET_ASSIGNMENT_OVERLAP` code — collapsed three different violations into one, losing the spec's
+own `FLEET_PRIMARY_DRIVER_EXISTS`/`FLEET_DRIVER_ALREADY_PRIMARY_ELSEWHERE` distinction. Fixed by
+mapping on the actual Postgres constraint name (`error.constraint`), same technique already used for
+vehicles'/trailers' VIN/registration uniqueness in Etap 2.
+
+**Still blocked, same as Etap 1's `drivers`/`files` gap:** `drivers` has zero real rows (company-
+service's driver-invite flow doesn't exist) — Etap 3's real verification used manually-inserted
+fixture rows in `drivers`, not a real event-sourced flow. Fine for now; don't build the real consumer
+speculatively ahead of that upstream flow, per the same reasoning as Etap 1.
+
+### Etap 4: documents, files, renewal, sensitive numbers — done
+
+`documents` (huge validation surface — subject/type match, `applies_to_kinds`, `requires_number`,
+`has_country`, `multiple_active` uniqueness, `attributes` validated against the type's own
+`attributes_schema` via `@transport/core/validator`), `document_files`, `attachments` (free-standing
+photos, no document type). Renewal (§6): new document with `previous_document_id`, old one gets
+`is_current=false`/`superseded_at`, both in one transaction. Same sensitive-number encryption pattern
+as driver profiles, keyed by `document_types.is_sensitive`. `fleet_document_suggest_dates` is a pure
+calculation endpoint (no DB write). Role nuance implemented: `accountant` can create/edit/renew
+documents ONLY for `insurance`/`contract`/`toll`-category types (§9) — enforced in the service, not
+just the REST layer, since the category is only known after loading the document type.
+
+**Real bug found:** `document_types.subject_type` values are `vehicle`/`trailer`/`driver`/`company`,
+but the driver column is `driver_user_id`, not `driver_id` — a naive `` `${subject_type}_id` ``
+mapping (which works for vehicle/trailer) silently broke EVERY driver-subject document type,
+rejecting valid input with `FLEET_DOCUMENT_TYPE_SUBJECT_MISMATCH`. Fixed with an explicit
+subject_type→column map instead of a naming-convention guess. This class of bug (a convention that
+holds for 2 of 3 cases and silently breaks the third) is worth remembering when adding similar
+subject-type dispatch elsewhere.
+
+### Etap 5: compliance/deadlines — done (documents-based checks only)
+
+`compliance_notices` (idempotency table — `INSERT ... ON CONFLICT DO NOTHING RETURNING id`; only
+publish the Kafka event when a row was actually inserted). Driven by a new daily cron tick
+(`tick.fleet.compliance.daily`, core-service's `cron.mts`, 04:00) with a `POST /internal/fleet/
+compliance/run` fallback (spec §10, shared-secret protected) that calls the exact same function.
+Advisory-locked per company (`pg_try_advisory_xact_lock(hashtext(company_id)::bigint)`) so a
+redelivered tick can't double-process. Covers what Etap 5 can check against tables that exist today:
+document expiry (`compliance.expiring` per remind-days threshold, `compliance.expired` once) and
+missing required documents (`compliance.missing`, evaluating `document_types.required_when` against
+real vehicle/trailer/driver fields — `always`/`international`/`adr`/`reefer`/`tank`/`crane`/`leased`;
+`third_country_driver` is a known, documented gap — no EU-country list to evaluate it against yet).
+Mileage-based due dates, maintenance-due, and tachograph-download-staleness notices are deferred to
+whenever their underlying tables get compliance-check wiring (the tables themselves now exist, from
+Etap 6, but `tick.fleet.compliance.daily` hasn't been extended to read them yet — a real follow-up,
+not forgotten).
+
+**Real bug found (twice, same class):** both `documents.valid_to` (a `date` column) coming back as a
+JS `Date` object from pg, and the event schemas declaring `due_on` as `["string","null"]` — ajv
+rejected every `compliance.expiring`/`compliance.expired` publish. Same fix pattern as every prior
+"Date object where the schema only allowed string" bug this project has hit (Etap 2's vehicle/trailer
+event date fields) — worth internalizing as a standing rule: **any event field sourced from a `date`
+or `timestamptz` column needs `["string","object","null"]` in its ajv schema, not just
+`["string","null"]`**, because the value is still a live `Date` object at the moment `broker.send`
+validates it, before `JSON.stringify` ever runs.
+
+**Also discovered:** `/usr/app/Events` is its own Docker anonymous volume (docker-compose.yaml's
+per-service volumes list), same as `/usr/app/core` — editing `Events/*.mjs` on the host does NOT
+reach a running container without `docker compose up -d --build --force-recreate -V <service>`.
+`nodemon` only watches `src/**/*.mts`, so it won't even trigger a restart on its own; the schema
+change silently doesn't take effect until forced. Recorded in
+[[project_typescript7_toolchain]] as a standing Docker gotcha.
+
+### Etap 6: odometer, maintenance, tyres, equipment, toll devices, tachograph downloads, damage reports — done
+
+Seven new tables (`odometer_readings`, `maintenance_plans`/`maintenance_records`(+files), `tyres`/
+`tyre_mountings`, `toll_devices`, `equipment_items`, `tachograph_downloads`, `damage_reports`(+files)).
+Odometer anomaly detection (lower-than-previous or >3000km/day jump → recorded but does NOT update
+`vehicles.odometer_km`, unlike an explicit `correct` which always does). A maintenance record with
+`plan_id` recomputes the plan's `next_due_on`/`next_due_km` in the same transaction. Tyre mount/
+unmount toggles `tyres.status` and uses the same `tstzrange` + `EXCLUDE`-then-catch-by-constraint-name
+pattern as vehicle_drivers. Toll device axle/Euro-class mismatch vs. the assigned vehicle → warning,
+not a block (§3.14). Damage reports: reporting is open to `driver` (their own truck) in addition to
+office roles, but *managing* (status/claim) is owner/transport_manager/accountant only — two separate
+role sets, not one.
+
+**Real bug found (yet again the Date-object class):** `maintenance_records.performed_on` (a `date`
+column) comes back from pg as a `Date` object; the `addMonths` helper computing a plan's
+`next_due_on` assumed a plain ISO string and did `` `${dateStr}T00:00:00Z` `` — template-interpolating
+a `Date` object into that produces a garbage string (`Date`'s own `.toString()` + the appended
+suffix), throwing `RangeError: Invalid time value`. Fixed by accepting either a `Date` or a string.
+This is the *third* distinct place this exact category of bug has surfaced (event schemas in Etap 2
+and Etap 5, now a plain computation in Etap 6) — worth treating "does this touch a `date`/`timestamptz`
+column's value?" as a standing checklist item whenever writing new code in this service, not just
+event-publishing code.
+
+**One added error code, not in the spec's original §15 registry:** `FLEET_DUPLICATE_TOLL_DEVICE_SERIAL`
+(the `toll_devices_serial_uq` partial unique index needed its own code — reusing
+`FLEET_DUPLICATE_REGISTRATION` produced a nonsensical "vehicle/trailer" error message for a toll
+device). Added to the spec file directly, same practice as `FLEET_DUPLICATE_INTERNAL_CODE` in Etap 2.
+
+**Not yet built:** `document_extractions` (§3.18, Etap 8 — recognition contract) and query_db/Hasura
+projections + permissions (§14, Etap 7) remain. Etap 7 is next, and needs to also extend
+`tick.fleet.compliance.daily` to cover `maintenance_plans.next_due_*` and `tachograph_downloads`
+staleness now that those tables exist.
