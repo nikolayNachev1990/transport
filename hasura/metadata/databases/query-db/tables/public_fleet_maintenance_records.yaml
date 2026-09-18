@@ -1,0 +1,108 @@
+table:
+  name: fleet_maintenance_records
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - plan_id
+        - kind
+        - performed_on
+        - odometer_km
+        - engine_hours
+        - workshop_name
+        - workshop_company_id
+        - description
+        - work_order_number
+        - billing_expense_id
+        - downtime_from
+        - downtime_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - plan_id
+        - kind
+        - performed_on
+        - odometer_km
+        - engine_hours
+        - workshop_name
+        - workshop_company_id
+        - description
+        - work_order_number
+        - billing_expense_id
+        - downtime_from
+        - downtime_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - plan_id
+        - kind
+        - performed_on
+        - odometer_km
+        - engine_hours
+        - workshop_name
+        - workshop_company_id
+        - description
+        - work_order_number
+        - billing_expense_id
+        - downtime_from
+        - downtime_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - plan_id
+        - kind
+        - performed_on
+        - odometer_km
+        - engine_hours
+        - workshop_name
+        - workshop_company_id
+        - description
+        - work_order_number
+        - billing_expense_id
+        - downtime_from
+        - downtime_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

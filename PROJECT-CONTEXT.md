@@ -58,7 +58,7 @@ Never demotes a role and never deletes — **deactivates by recency** (newest-cr
 
 Explicitly out of scope this round, "just don't let the schema block it": a phone-based (E.164) invite flow separate from the email/password one above, SMS code hashed with TTL + attempt/send limits + a per-tenant cost log (per the deletion rule already built), `drivers_created_count` incremented on invite and decremented on expiry/cancellation (mirroring `users_created_count`'s own NULL→value transition guard). `company_role = "driver"` is deliberately rejected by both `company_user_create` and `company_user_role_update` today — do not just remove that check when building this; the whole flow needs its own mutation, matching the phone/SMS shape, not a variant of the email one.
 
-## fleet-service: STATE = Etap 6 done (of 8 — see SPEC-fleet-service.md §17)
+## fleet-service: STATE = Etap 7 done (of 8 — see SPEC-fleet-service.md §17)
 
 New service, `fleet-db`, structured exactly like company-service (own Dockerfile, `core` host
 symlink + `.dockerignore` entries, `config/{db,server,broker}.mts`, `resources.mts` with no S3 —
@@ -248,7 +248,79 @@ event-publishing code.
 `FLEET_DUPLICATE_REGISTRATION` produced a nonsensical "vehicle/trailer" error message for a toll
 device). Added to the spec file directly, same practice as `FLEET_DUPLICATE_INTERNAL_CODE` in Etap 2.
 
-**Not yet built:** `document_extractions` (§3.18, Etap 8 — recognition contract) and query_db/Hasura
-projections + permissions (§14, Etap 7) remain. Etap 7 is next, and needs to also extend
-`tick.fleet.compliance.daily` to cover `maintenance_plans.next_due_*` and `tachograph_downloads`
-staleness now that those tables exist.
+### Etap 7: query_db projections + Hasura permissions — done
+
+18 `fleet_*` tables + 3 views (`fleet_document_status`, `fleet_unit_compliance`,
+`fleet_current_assignment`) in query_db, Hasura-tracked with full permissions for owner/
+transport_manager/dispatcher/accountant (company-scoped) plus a deliberately narrow driver role.
+`fleet_entity_revisions` and `fleet_extractions` (§14's other two listed tables) are NOT built —
+see "deliberately deferred" below.
+
+**Real discovery before writing any code: several Etap 6 events were too thin for a real read
+projection.** They'd been designed only for OTHER services (routing/order/billing/track) that only
+need a few summary fields, but query_db needs the full row. Fixed by enriching
+`fleet.odometer.recorded`/`fleet.toll_device.upserted`/`fleet.equipment.upserted`/
+`fleet.tacho_download.recorded`/`fleet.damage_report.upserted` in place, and by splitting two
+events that had been wrongly combined: `fleet.maintenance.upserted` → separate
+`fleet.maintenance_plan.upserted`/`fleet.maintenance_record.upserted` (plans and records don't share
+a shape), and `fleet.tyre.upserted` → kept for the tyre's own fields, plus a new
+`fleet.tyre_mounting.changed` for mounting history (query_db needs `fleet_tyres` AND
+`fleet_tyre_mountings` as separate tables, per spec). Two more new events added because none existed
+before: `fleet.document_file.changed` (now carries the row's own `id`/`page_no`/`sort_order`, not
+just a doc/file pair) and `fleet.attachment.changed` (didn't exist at all until now).
+
+**Migrations were generated from the event schemas, not hand-typed** — a throwaway script
+(`/tmp/gen-query-migrations.mjs`, not committed) read each `Events/fleet.*.mjs` body and emitted
+matching `CREATE TABLE` column lists, guaranteeing the query_db table and the event that feeds it
+can never drift apart by a typo. Same idea for the ~90 Hasura permission blocks (21 tables/views ×
+up to 5 roles) — generated via `/tmp/gen-hasura-fleet.mjs`, not committed either (both are one-off
+generators, not part of the app).
+
+**Deliberately deferred, not forgotten:**
+- `fleet_entity_revisions` — every mutation already writes one `entity_revisions` row via the single
+  shared `insertRevision()` helper (`fleet/lib/revisions.mts`), but Kafka events in this codebase are
+  always published *after* the transaction commits, never from inside it (the established convention,
+  for good reason — a mid-transaction publish could announce something that later rolls back).
+  Wiring real-time sync would mean touching ~40 call sites across every service to publish
+  post-commit, for a table that's an audit trail, not something the main app queries directly. A
+  batch/snapshot-based sync (matching company-service's own `/internal/snapshot/companies` pattern)
+  is the right shape for this later, not real-time events.
+- `fleet_extractions` — no source table (`document_extractions`) exists in fleet_db yet; that's
+  Etap 8's own table, nothing to project until then.
+- Driver's Hasura permission on `fleet_vehicles`/`fleet_trailers`/`fleet_odometer_readings` ("only
+  their own *current* vehicle/trailer") — the correct way to express this in Hasura is a permission
+  filter through a relationship (e.g. an array relationship to `fleet_vehicle_drivers`), but the
+  exact YAML syntax for correlating a nested/relationship-based filter couldn't be verified against a
+  known-working example anywhere in this codebase, and this is exactly the kind of access-control
+  code where guessing wrong is a real leak, not just a bug. Left the driver role with **no**
+  permission block on these three tables at all (safe — a missing permission means the field doesn't
+  even exist in that role's schema — verified: `fleet_vehicles` for `x-hasura-role: driver` returns
+  `"field 'fleet_vehicles' not found in type: 'query_root'"`) rather than risk an always-true filter.
+  The one rule that actually mattered most (driver sees only their own `fleet_documents`/
+  `fleet_vehicle_drivers`/`fleet_tacho_downloads`/`fleet_damage_reports`, never a vehicle/trailer/
+  company document) uses a plain `driver_user_id = X-Hasura-User-Id` filter — no relationship needed,
+  100% certain syntax — and was verified for real: one driver sees their own document, a different
+  driver's session sees zero rows for the exact same query.
+- `fleet_unit_compliance`'s "missing document" count — the view only rolls up expired/expiring counts
+  from documents that exist; a real "missing" count needs `document_types.required_when` evaluated
+  against a subject's fields (the same logic `tick.fleet.compliance.daily` already has in JS), which
+  isn't something the view's plain SQL can replicate without duplicating that logic.
+
+**Verified end-to-end, real evidence:** a vehicle `PATCH` in fleet-service landed in `fleet_vehicles`
+within the same second; a document `PATCH` correctly reflected in the `fleet_document_status` view
+(`status: valid`, correct `days_left`); `fleet_current_assignment` correctly showed no current
+trailer after Etap 3's own detach test; Hasura metadata reports `is_consistent: true` for all 21
+new tracked tables/views; and the driver-isolation rule was checked with two different real driver
+sessions, not just reasoned about.
+
+**Known limitation carried over from the "new consumer group starts at latest offset" gotcha
+(already documented for `plan.upserted` earlier this project):** every fleet.* topic just started
+being consumed by `query-group` for the first time — vehicles/trailers/documents/etc. created
+*before* this etap are not backfilled into query_db, only ones created or updated from now on. Not a
+bug, but worth remembering before assuming query_db is "caught up" — a real resync would need each
+row's owning REST call re-triggered (there's no bulk backfill/snapshot endpoint on fleet-service yet,
+unlike company-service's `/internal/snapshot/companies`).
+
+**Next up: Etap 8** — the recognition contract (`document_extractions`, `fleet_extraction_request`/
+`confirm`/`reject`, a test-only `doc.extraction.*` publisher in `tester/`, no real doc-service). This
+is the last etap per SPEC-fleet-service.md §17.

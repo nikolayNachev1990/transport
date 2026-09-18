@@ -1,0 +1,174 @@
+table:
+  name: fleet_documents
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_type_code
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - document_number_last4
+        - series
+        - issuer_name
+        - issuer_country
+        - country
+        - issued_on
+        - valid_from
+        - valid_to
+        - valid_to_km
+        - categories
+        - previous_document_id
+        - superseded_at
+        - is_current
+        - reminders_muted
+        - source
+        - version
+        - created_at
+        - updated_at
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_type_code
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - document_number_last4
+        - series
+        - issuer_name
+        - issuer_country
+        - country
+        - issued_on
+        - valid_from
+        - valid_to
+        - valid_to_km
+        - categories
+        - previous_document_id
+        - superseded_at
+        - is_current
+        - reminders_muted
+        - source
+        - version
+        - created_at
+        - updated_at
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_type_code
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - document_number_last4
+        - series
+        - issuer_name
+        - issuer_country
+        - country
+        - issued_on
+        - valid_from
+        - valid_to
+        - valid_to_km
+        - categories
+        - previous_document_id
+        - superseded_at
+        - is_current
+        - reminders_muted
+        - source
+        - version
+        - created_at
+        - updated_at
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_type_code
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - document_number_last4
+        - series
+        - issuer_name
+        - issuer_country
+        - country
+        - issued_on
+        - valid_from
+        - valid_to
+        - valid_to_km
+        - categories
+        - previous_document_id
+        - superseded_at
+        - is_current
+        - reminders_muted
+        - source
+        - version
+        - created_at
+        - updated_at
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: driver
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_type_code
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - document_number_last4
+        - series
+        - issuer_name
+        - issuer_country
+        - country
+        - issued_on
+        - valid_from
+        - valid_to
+        - valid_to_km
+        - categories
+        - previous_document_id
+        - superseded_at
+        - is_current
+        - reminders_muted
+        - source
+        - version
+        - created_at
+        - updated_at
+        - is_deleted
+        - synced_at
+      filter:
+        driver_user_id:
+          _eq: X-Hasura-User-Id
+      limit: 1000
+      allow_aggregations: false

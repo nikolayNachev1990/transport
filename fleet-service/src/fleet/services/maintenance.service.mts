@@ -49,25 +49,46 @@ function addMonths(date: string | Date, months: number): string {
 }
 
 async function publishPlanUpserted(row: Record<string, unknown>): Promise<void> {
-  await broker.send("fleet.maintenance.upserted", {
-    entity: "plan",
+  await broker.send("fleet.maintenance_plan.upserted", {
     id: row.id,
     company_id: row.company_id,
     vehicle_id: row.vehicle_id ?? null,
     trailer_id: row.trailer_id ?? null,
+    task: row.task,
+    custom_label: row.custom_label ?? null,
+    interval_km: row.interval_km ?? null,
+    interval_months: row.interval_months ?? null,
+    interval_hours: row.interval_hours ?? null,
+    last_done_on: row.last_done_on ?? null,
+    last_done_km: row.last_done_km ?? null,
+    last_done_hours: row.last_done_hours ?? null,
+    next_due_on: row.next_due_on ?? null,
+    next_due_km: row.next_due_km ?? null,
+    remind_km_before: row.remind_km_before,
+    remind_days: row.remind_days ?? null,
     is_active: row.is_active,
     version: row.version,
   });
 }
 
 async function publishRecordUpserted(row: Record<string, unknown>): Promise<void> {
-  await broker.send("fleet.maintenance.upserted", {
-    entity: "record",
+  await broker.send("fleet.maintenance_record.upserted", {
     id: row.id,
     company_id: row.company_id,
     vehicle_id: row.vehicle_id ?? null,
     trailer_id: row.trailer_id ?? null,
-    is_active: null,
+    plan_id: row.plan_id ?? null,
+    kind: row.kind,
+    performed_on: row.performed_on,
+    odometer_km: row.odometer_km ?? null,
+    engine_hours: row.engine_hours ?? null,
+    workshop_name: row.workshop_name ?? null,
+    workshop_company_id: row.workshop_company_id ?? null,
+    description: row.description,
+    work_order_number: row.work_order_number ?? null,
+    billing_expense_id: row.billing_expense_id ?? null,
+    downtime_from: row.downtime_from ?? null,
+    downtime_to: row.downtime_to ?? null,
     version: row.version,
   });
 }

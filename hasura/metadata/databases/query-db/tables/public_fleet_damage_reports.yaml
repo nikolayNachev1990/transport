@@ -1,0 +1,144 @@
+table:
+  name: fleet_damage_reports
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - kind
+        - occurred_at
+        - location_text
+        - lat
+        - lng
+        - description
+        - third_party_involved
+        - police_report_number
+        - european_accident_statement
+        - insurance_document_id
+        - claim_number
+        - status
+        - order_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - kind
+        - occurred_at
+        - location_text
+        - lat
+        - lng
+        - description
+        - third_party_involved
+        - police_report_number
+        - european_accident_statement
+        - insurance_document_id
+        - claim_number
+        - status
+        - order_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - kind
+        - occurred_at
+        - location_text
+        - lat
+        - lng
+        - description
+        - third_party_involved
+        - police_report_number
+        - european_accident_statement
+        - insurance_document_id
+        - claim_number
+        - status
+        - order_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - kind
+        - occurred_at
+        - location_text
+        - lat
+        - lng
+        - description
+        - third_party_involved
+        - police_report_number
+        - european_accident_statement
+        - insurance_document_id
+        - claim_number
+        - status
+        - order_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: driver
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - driver_user_id
+        - kind
+        - occurred_at
+        - location_text
+        - lat
+        - lng
+        - description
+        - third_party_involved
+        - police_report_number
+        - european_accident_statement
+        - insurance_document_id
+        - claim_number
+        - status
+        - order_id
+        - version
+        - synced_at
+      filter:
+        driver_user_id:
+          _eq: X-Hasura-User-Id
+      limit: 1000
+      allow_aggregations: false

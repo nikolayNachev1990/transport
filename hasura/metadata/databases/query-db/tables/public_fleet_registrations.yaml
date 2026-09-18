@@ -1,0 +1,76 @@
+table:
+  name: fleet_registrations
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - entity_type
+        - entity_id
+        - old_registration_number
+        - old_registration_country
+        - new_registration_number
+        - new_registration_country
+        - changed_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - entity_type
+        - entity_id
+        - old_registration_number
+        - old_registration_country
+        - new_registration_number
+        - new_registration_country
+        - changed_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - entity_type
+        - entity_id
+        - old_registration_number
+        - old_registration_country
+        - new_registration_number
+        - new_registration_country
+        - changed_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - entity_type
+        - entity_id
+        - old_registration_number
+        - old_registration_country
+        - new_registration_number
+        - new_registration_country
+        - changed_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

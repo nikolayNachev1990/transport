@@ -23,10 +23,36 @@ async function publishTyre(id: string, companyId: string, trx: import("knex").Kn
   await broker.send("fleet.tyre.upserted", {
     id: tyre.id,
     company_id: companyId,
+    serial: tyre.serial ?? null,
+    brand: tyre.brand,
+    model: tyre.model ?? null,
+    size: tyre.size,
+    dot_code: tyre.dot_code ?? null,
+    season: tyre.season ?? null,
+    axle_type: tyre.axle_type ?? null,
     status: tyre.status,
     mounted_vehicle_id: mounted?.vehicle_id ?? null,
     mounted_trailer_id: mounted?.trailer_id ?? null,
     version: tyre.version,
+  });
+}
+
+async function publishMounting(row: Record<string, unknown>): Promise<void> {
+  await broker.send("fleet.tyre_mounting.changed", {
+    id: row.id,
+    company_id: row.company_id,
+    tyre_id: row.tyre_id,
+    vehicle_id: row.vehicle_id ?? null,
+    trailer_id: row.trailer_id ?? null,
+    position: row.position,
+    mounted_at: row.period_from,
+    removed_at: row.period_to ?? null,
+    mounted_km: row.mounted_km ?? null,
+    removed_km: row.removed_km ?? null,
+    tread_mm_start: row.tread_mm_start ?? null,
+    tread_mm_end: row.tread_mm_end ?? null,
+    removal_reason: row.removal_reason ?? null,
+    version: row.version,
   });
 }
 
@@ -94,7 +120,7 @@ class TyreService {
         const insertResult = await trx.raw(
           `INSERT INTO tyre_mountings (id, company_id, tyre_id, vehicle_id, trailer_id, position, period, mounted_km, tread_mm_start, version, source, created_by, updated_by)
            VALUES (:id, :companyId, :tyreId, :vehicleId, :trailerId, :position, tstzrange(:from, NULL), :mountedKm, :treadMmStart, 1, 'manual', :actorUserId, :actorUserId)
-           RETURNING *`,
+           RETURNING *, lower(period) AS period_from, upper(period) AS period_to`,
           {
             id,
             companyId,
@@ -132,6 +158,7 @@ class TyreService {
     }
 
     if (!result.ok) return result;
+    await publishMounting(result.data);
     const knex2 = db.client();
     await knex2.transaction((trx) => publishTyre(tyreId, companyId, trx));
     await publishAudit(companyId, actorUserId, "fleet_tyre.mounted", "tyre_mounting", result.data.id as string);
@@ -159,7 +186,7 @@ class TyreService {
       const updatedResult = await trx.raw(
         `UPDATE tyre_mountings SET period = tstzrange(lower(period), :to), removed_km = :removedKm, tread_mm_end = :treadMmEnd, removal_reason = :removalReason,
            version = version + 1, updated_by = :actorUserId, updated_at = now()
-         WHERE id = :id RETURNING *`,
+         WHERE id = :id RETURNING *, lower(period) AS period_from, upper(period) AS period_to`,
         { id, to: removedAt, removedKm, treadMmEnd, removalReason, actorUserId },
       );
       const updated = updatedResult.rows[0];
@@ -182,6 +209,7 @@ class TyreService {
     });
 
     if (!result.ok) return result;
+    await publishMounting(result.data);
     const knex2 = db.client();
     await knex2.transaction((trx) => publishTyre(result.tyreId, companyId, trx));
     await publishAudit(companyId, actorUserId, "fleet_tyre.unmounted", "tyre_mounting", id);

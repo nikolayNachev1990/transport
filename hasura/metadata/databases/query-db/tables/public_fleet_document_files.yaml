@@ -1,0 +1,72 @@
+table:
+  name: fleet_document_files
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_id
+        - file_id
+        - side
+        - page_no
+        - sort_order
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_id
+        - file_id
+        - side
+        - page_no
+        - sort_order
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_id
+        - file_id
+        - side
+        - page_no
+        - sort_order
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - document_id
+        - file_id
+        - side
+        - page_no
+        - sort_order
+        - is_deleted
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

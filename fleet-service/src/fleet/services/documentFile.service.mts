@@ -57,10 +57,13 @@ class DocumentFileService {
 
     if (!result.ok) return result;
     await broker.send("fleet.document_file.changed", {
+      id: result.data.id,
       document_id: result.data.document_id,
       company_id: companyId,
       file_id: result.data.file_id,
       side: result.data.side,
+      page_no: (result.data as unknown as { page_no: number | null }).page_no ?? null,
+      sort_order: (result.data as unknown as { sort_order: number }).sort_order,
       action: "attached",
     });
     await publishAudit(companyId, actorUserId, "fleet_document_file.attached", "document_file", result.data.id);
@@ -95,10 +98,13 @@ class DocumentFileService {
 
     if (!result.ok) return result;
     await broker.send("fleet.document_file.changed", {
+      id: result.data.id,
       document_id: result.data.document_id,
       company_id: companyId,
       file_id: result.data.file_id,
       side: result.data.side,
+      page_no: (result.data as unknown as { page_no: number | null }).page_no ?? null,
+      sort_order: (result.data as unknown as { sort_order: number }).sort_order,
       action: "detached",
     });
     await publishAudit(companyId, actorUserId, "fleet_document_file.detached", "document_file", id);
@@ -111,18 +117,32 @@ class DocumentFileService {
       const document = await trx("documents").where({ id: documentId, company_id: companyId }).whereNull("deleted_at").first();
       if (!document) return { ok: false, code: "FLEET_NOT_FOUND" } as const;
 
+      const updatedRows: DocumentFileRow[] = [];
       for (let i = 0; i < orderedFileRowIds.length; i++) {
-        await trx("document_files")
+        const [updated] = await trx("document_files")
           .update({ sort_order: i, updated_by: actorUserId, updated_at: new Date() })
-          .where({ id: orderedFileRowIds[i], document_id: documentId, company_id: companyId });
+          .where({ id: orderedFileRowIds[i], document_id: documentId, company_id: companyId })
+          .returning("*");
+        if (updated) updatedRows.push(updated as DocumentFileRow);
       }
 
-      return { ok: true, data: { document_id: documentId } } as const;
+      return { ok: true, data: { document_id: documentId, updatedRows } } as const;
     });
 
     if (!result.ok) return result;
-    await broker.send("fleet.document_file.changed", { document_id: documentId, company_id: companyId, file_id: null, side: null, action: "reordered" });
-    return { ok: true, data: result.data };
+    for (const row of result.data.updatedRows) {
+      await broker.send("fleet.document_file.changed", {
+        id: row.id,
+        document_id: row.document_id,
+        company_id: companyId,
+        file_id: row.file_id,
+        side: row.side,
+        page_no: (row as unknown as { page_no: number | null }).page_no ?? null,
+        sort_order: (row as unknown as { sort_order: number }).sort_order,
+        action: "reordered",
+      });
+    }
+    return { ok: true, data: { document_id: result.data.document_id } };
   }
 }
 

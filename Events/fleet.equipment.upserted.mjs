@@ -17,12 +17,16 @@ export default {
       trailer_id: nullableString,
       item_type: { type: "string" },
       quantity: { type: "integer" },
+      serial: nullableString,
       valid_to: timestamp,
+      notes: nullableString,
       version: { type: "integer" },
     },
-    required: ["id", "company_id", "vehicle_id", "trailer_id", "item_type", "quantity", "valid_to", "version"],
+    required: ["id", "company_id", "vehicle_id", "trailer_id", "item_type", "quantity", "serial", "valid_to", "notes", "version"],
     additionalProperties: false,
   },
   producers: ["fleet-group"],
-  consumers: {},
+  consumers: {
+    "query-group": { mode: "one" },
+  },
 };

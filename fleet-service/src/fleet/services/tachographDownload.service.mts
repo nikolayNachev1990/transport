@@ -68,6 +68,10 @@ class TachographDownloadService {
       vehicle_id: result.data.vehicle_id,
       driver_user_id: result.data.driver_user_id,
       downloaded_at: result.data.downloaded_at,
+      period_from: result.data.period_from ?? null,
+      period_to: result.data.period_to ?? null,
+      file_id: result.data.file_id ?? null,
+      origin: result.data.origin,
       version: result.data.version,
     });
     await publishAudit(companyId, actorUserId, "fleet_tacho_download.recorded", "tachograph_download", result.data.id as string);

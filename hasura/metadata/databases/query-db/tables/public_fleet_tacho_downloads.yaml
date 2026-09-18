@@ -1,0 +1,99 @@
+table:
+  name: fleet_tacho_downloads
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - driver_user_id
+        - downloaded_at
+        - period_from
+        - period_to
+        - file_id
+        - origin
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - driver_user_id
+        - downloaded_at
+        - period_from
+        - period_to
+        - file_id
+        - origin
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - driver_user_id
+        - downloaded_at
+        - period_from
+        - period_to
+        - file_id
+        - origin
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - driver_user_id
+        - downloaded_at
+        - period_from
+        - period_to
+        - file_id
+        - origin
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: driver
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - driver_user_id
+        - downloaded_at
+        - period_from
+        - period_to
+        - file_id
+        - origin
+        - version
+        - synced_at
+      filter:
+        driver_user_id:
+          _eq: X-Hasura-User-Id
+      limit: 1000
+      allow_aggregations: false

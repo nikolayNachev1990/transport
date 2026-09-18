@@ -1,0 +1,149 @@
+table:
+  name: fleet_driver_profiles
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - company_id
+        - user_id
+        - birth_date
+        - birth_place
+        - nationality
+        - personal_number_last4
+        - address_line
+        - city
+        - postal_code
+        - country
+        - employee_number
+        - employment_start_date
+        - employment_end_date
+        - emergency_contact_name
+        - emergency_contact_phone
+        - notes
+        - source
+        - version
+        - created_at
+        - updated_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - company_id
+        - user_id
+        - birth_date
+        - birth_place
+        - nationality
+        - personal_number_last4
+        - address_line
+        - city
+        - postal_code
+        - country
+        - employee_number
+        - employment_start_date
+        - employment_end_date
+        - emergency_contact_name
+        - emergency_contact_phone
+        - notes
+        - source
+        - version
+        - created_at
+        - updated_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - company_id
+        - user_id
+        - birth_date
+        - birth_place
+        - nationality
+        - personal_number_last4
+        - address_line
+        - city
+        - postal_code
+        - country
+        - employee_number
+        - employment_start_date
+        - employment_end_date
+        - emergency_contact_name
+        - emergency_contact_phone
+        - notes
+        - source
+        - version
+        - created_at
+        - updated_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - company_id
+        - user_id
+        - birth_date
+        - birth_place
+        - nationality
+        - personal_number_last4
+        - address_line
+        - city
+        - postal_code
+        - country
+        - employee_number
+        - employment_start_date
+        - employment_end_date
+        - emergency_contact_name
+        - emergency_contact_phone
+        - notes
+        - source
+        - version
+        - created_at
+        - updated_at
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: driver
+    permission:
+      columns:
+        - company_id
+        - user_id
+        - birth_date
+        - birth_place
+        - nationality
+        - personal_number_last4
+        - address_line
+        - city
+        - postal_code
+        - country
+        - employee_number
+        - employment_start_date
+        - employment_end_date
+        - emergency_contact_name
+        - emergency_contact_phone
+        - notes
+        - source
+        - version
+        - created_at
+        - updated_at
+        - synced_at
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      limit: 1000
+      allow_aggregations: false

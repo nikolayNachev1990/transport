@@ -1,0 +1,72 @@
+table:
+  name: fleet_combinations
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - attached_at
+        - detached_at
+        - note
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - attached_at
+        - detached_at
+        - note
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - attached_at
+        - detached_at
+        - note
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - trailer_id
+        - attached_at
+        - detached_at
+        - note
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

@@ -1,8 +1,8 @@
-// SPEC-fleet-service.md §3.10. No dedicated broker event exists for
-// attachments in §11's table — only audit.action, same as every other
-// mutation, but no entity-snapshot event to publish here.
+// SPEC-fleet-service.md §3.10. §11's own event table doesn't list an
+// attachment event, but query_db's fleet_attachments projection (§14)
+// needs one — fleet.attachment.changed, added alongside this etap.
 import { v7 as uuidv7 } from "uuid";
-import { db } from "../../resources.mjs";
+import { db, broker } from "../../resources.mjs";
 import { insertRevision } from "../lib/revisions.mjs";
 import { publishAudit } from "../lib/audit.mjs";
 
@@ -74,6 +74,18 @@ class AttachmentService {
     });
 
     if (!result.ok) return result;
+    await broker.send("fleet.attachment.changed", {
+      id: result.data.id,
+      company_id: companyId,
+      vehicle_id: (result.data as unknown as { vehicle_id: string | null }).vehicle_id,
+      trailer_id: (result.data as unknown as { trailer_id: string | null }).trailer_id,
+      driver_user_id: (result.data as unknown as { driver_user_id: string | null }).driver_user_id,
+      file_id: (result.data as unknown as { file_id: string }).file_id,
+      label: (result.data as unknown as { label: string | null }).label,
+      taken_at: (result.data as unknown as { taken_at: Date | null }).taken_at,
+      action: "added",
+      version: result.data.version,
+    });
     await publishAudit(companyId, actorUserId, "fleet_attachment.added", "attachment", result.data.id);
     return { ok: true, data: { id: result.data.id, version: result.data.version } };
   }
@@ -105,6 +117,18 @@ class AttachmentService {
     });
 
     if (!result.ok) return result;
+    await broker.send("fleet.attachment.changed", {
+      id: result.data.id,
+      company_id: companyId,
+      vehicle_id: (result.data as unknown as { vehicle_id: string | null }).vehicle_id,
+      trailer_id: (result.data as unknown as { trailer_id: string | null }).trailer_id,
+      driver_user_id: (result.data as unknown as { driver_user_id: string | null }).driver_user_id,
+      file_id: (result.data as unknown as { file_id: string }).file_id,
+      label: (result.data as unknown as { label: string | null }).label,
+      taken_at: (result.data as unknown as { taken_at: Date | null }).taken_at,
+      action: "removed",
+      version: result.data.version,
+    });
     await publishAudit(companyId, actorUserId, "fleet_attachment.removed", "attachment", id);
     return { ok: true, data: { id: result.data.id, version: result.data.version } };
   }

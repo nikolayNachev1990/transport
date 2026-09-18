@@ -24,5 +24,7 @@ export default {
     additionalProperties: false,
   },
   producers: ["fleet-group"],
-  consumers: {},
+  consumers: {
+    "query-group": { mode: "one" },
+  },
 };

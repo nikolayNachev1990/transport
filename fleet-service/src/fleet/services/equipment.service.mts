@@ -23,7 +23,9 @@ async function publishUpserted(row: Record<string, unknown>): Promise<void> {
     trailer_id: row.trailer_id ?? null,
     item_type: row.item_type,
     quantity: row.quantity,
+    serial: row.serial ?? null,
     valid_to: row.valid_to ?? null,
+    notes: row.notes ?? null,
     version: row.version,
   });
 }

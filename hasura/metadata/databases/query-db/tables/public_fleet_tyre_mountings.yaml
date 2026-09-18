@@ -1,0 +1,96 @@
+table:
+  name: fleet_tyre_mountings
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - tyre_id
+        - vehicle_id
+        - trailer_id
+        - position
+        - mounted_at
+        - removed_at
+        - mounted_km
+        - removed_km
+        - tread_mm_start
+        - tread_mm_end
+        - removal_reason
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - tyre_id
+        - vehicle_id
+        - trailer_id
+        - position
+        - mounted_at
+        - removed_at
+        - mounted_km
+        - removed_km
+        - tread_mm_start
+        - tread_mm_end
+        - removal_reason
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - tyre_id
+        - vehicle_id
+        - trailer_id
+        - position
+        - mounted_at
+        - removed_at
+        - mounted_km
+        - removed_km
+        - tread_mm_start
+        - tread_mm_end
+        - removal_reason
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - tyre_id
+        - vehicle_id
+        - trailer_id
+        - position
+        - mounted_at
+        - removed_at
+        - mounted_km
+        - removed_km
+        - tread_mm_start
+        - tread_mm_end
+        - removal_reason
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

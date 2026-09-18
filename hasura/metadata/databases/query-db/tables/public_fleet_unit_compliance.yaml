@@ -1,0 +1,60 @@
+table:
+  name: fleet_unit_compliance
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - subject_type
+        - subject_id
+        - company_id
+        - worst_status
+        - expired_count
+        - expiring_count
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - subject_type
+        - subject_id
+        - company_id
+        - worst_status
+        - expired_count
+        - expiring_count
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - subject_type
+        - subject_id
+        - company_id
+        - worst_status
+        - expired_count
+        - expiring_count
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - subject_type
+        - subject_id
+        - company_id
+        - worst_status
+        - expired_count
+        - expiring_count
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

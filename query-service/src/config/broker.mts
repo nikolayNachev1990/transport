@@ -151,6 +151,120 @@ const consumers: Record<string, ConsumerCallback> = {
     const { db } = await import("../resources.mjs");
     await db.insert("audit_log", event.body as Record<string, unknown>);
   },
+
+  // Etap 7 (SPEC-fleet-service.md §14) — fleet-service projections. Every
+  // *.upserted/.changed body's keys already match its target table 1:1
+  // (see query-service/src/migrations/2026093*, derived from these same
+  // event schemas), so upsertRow covers all of them generically; only the
+  // soft-delete and action-branching ones need their own small handler.
+  "fleet.vehicle.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_vehicles", ["id"], event.body as Record<string, unknown>, { is_deleted: false, synced_at: new Date() });
+  },
+  "fleet.vehicle.deleted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { id } = event.body as { id: string };
+    await db.updateById("fleet_vehicles", id, { is_deleted: true, synced_at: new Date() });
+  },
+  "fleet.trailer.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_trailers", ["id"], event.body as Record<string, unknown>, { is_deleted: false, synced_at: new Date() });
+  },
+  "fleet.trailer.deleted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { id } = event.body as { id: string };
+    await db.updateById("fleet_trailers", id, { is_deleted: true, synced_at: new Date() });
+  },
+  "fleet.registration.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    await db.insert("fleet_registrations", event.body as Record<string, unknown>);
+  },
+  "fleet.combination.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_combinations", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.vehicle_driver.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_vehicle_drivers", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.driver_profile.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_driver_profiles", ["company_id", "user_id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.document.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_documents", ["id"], event.body as Record<string, unknown>, { is_deleted: false, synced_at: new Date() });
+  },
+  "fleet.document.deleted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { id } = event.body as { id: string };
+    await db.updateById("fleet_documents", id, { is_deleted: true, synced_at: new Date() });
+  },
+  "fleet.document_file.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    const body = event.body as Record<string, unknown> & { action: string };
+    const { action, ...rest } = body;
+    await upsertRow(db, "fleet_document_files", ["id"], rest, { is_deleted: action === "detached", synced_at: new Date() });
+  },
+  "fleet.attachment.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    const body = event.body as Record<string, unknown> & { action: string };
+    const { action, ...rest } = body;
+    await upsertRow(db, "fleet_attachments", ["id"], rest, { is_deleted: action === "removed", synced_at: new Date() });
+  },
+  "fleet.odometer.recorded": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_odometer_readings", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.maintenance_plan.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_maintenance_plans", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.maintenance_record.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_maintenance_records", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.tyre.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_tyres", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.tyre_mounting.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_tyre_mountings", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.equipment.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_equipment_items", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.toll_device.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_toll_devices", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.tacho_download.recorded": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_tacho_downloads", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
+  "fleet.damage_report.upserted": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_damage_reports", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
 };
 
 export default async function brokerConfig(): Promise<BrokerConfig> {

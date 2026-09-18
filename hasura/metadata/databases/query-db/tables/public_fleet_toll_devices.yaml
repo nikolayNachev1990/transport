@@ -1,0 +1,88 @@
+table:
+  name: fleet_toll_devices
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - provider
+        - countries
+        - device_serial
+        - contract_number
+        - axle_class
+        - euro_class_declared
+        - status
+        - valid_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - provider
+        - countries
+        - device_serial
+        - contract_number
+        - axle_class
+        - euro_class_declared
+        - status
+        - valid_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - provider
+        - countries
+        - device_serial
+        - contract_number
+        - axle_class
+        - euro_class_declared
+        - status
+        - valid_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - id
+        - company_id
+        - vehicle_id
+        - provider
+        - countries
+        - device_serial
+        - contract_number
+        - axle_class
+        - euro_class_declared
+        - status
+        - valid_to
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

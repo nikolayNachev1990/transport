@@ -1,0 +1,56 @@
+table:
+  name: fleet_current_assignment
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - vehicle_id
+        - company_id
+        - current_trailer_id
+        - combination_attached_at
+        - current_drivers
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - vehicle_id
+        - company_id
+        - current_trailer_id
+        - combination_attached_at
+        - current_drivers
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - vehicle_id
+        - company_id
+        - current_trailer_id
+        - combination_attached_at
+        - current_drivers
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - vehicle_id
+        - company_id
+        - current_trailer_id
+        - combination_attached_at
+        - current_drivers
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

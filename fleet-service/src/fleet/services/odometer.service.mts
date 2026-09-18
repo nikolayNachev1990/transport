@@ -31,6 +31,7 @@ async function publishRecorded(row: ReadingRow, source: string): Promise<void> {
     read_at: row.read_at,
     origin: (row as unknown as { origin: string }).origin,
     is_anomaly: row.is_anomaly,
+    file_id: (row as unknown as { file_id: string | null }).file_id ?? null,
     source,
     version: row.version,
   });
