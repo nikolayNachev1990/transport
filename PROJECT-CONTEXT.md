@@ -58,7 +58,7 @@ Never demotes a role and never deletes — **deactivates by recency** (newest-cr
 
 Explicitly out of scope this round, "just don't let the schema block it": a phone-based (E.164) invite flow separate from the email/password one above, SMS code hashed with TTL + attempt/send limits + a per-tenant cost log (per the deletion rule already built), `drivers_created_count` incremented on invite and decremented on expiry/cancellation (mirroring `users_created_count`'s own NULL→value transition guard). `company_role = "driver"` is deliberately rejected by both `company_user_create` and `company_user_role_update` today — do not just remove that check when building this; the whole flow needs its own mutation, matching the phone/SMS shape, not a variant of the email one.
 
-## fleet-service: STATE = Etap 1 done (of 8 — see SPEC-fleet-service.md §17)
+## fleet-service: STATE = Etap 2 done (of 8 — see SPEC-fleet-service.md §17)
 
 New service, `fleet-db`, structured exactly like company-service (own Dockerfile, `core` host
 symlink + `.dockerignore` entries, `config/{db,server,broker}.mts`, `resources.mts` with no S3 —
@@ -102,3 +102,50 @@ container, not just the new one** — `docker compose ps -a` (the `-a` matters: 
 `minio` was separately found to be in this same check, silently disappears from a bare `docker compose
 ps`). Fix is just `docker compose restart <each crashed service>` once Kafka itself is confirmed
 healthy again.
+
+### Etap 2: vehicles, trailers, registrations, units limit, revision history — done
+
+Schema: `vehicles`, `trailers` (raw-SQL migrations, not the knex builder — the CHECK constraints and
+two partial unique indexes per table have no clean builder equivalent), `registrations` (history of
+registration-number periods, `daterange`, `EXCLUDE USING gist` per vehicle_id/trailer_id), and
+`entity_revisions` (generic version-history table, one row per mutation, `UNIQUE(entity_type,
+entity_id, revision)`). Full 6-action REST surface for both entities: create/update/set_status/
+delete/restore/registration_change, `fleet-service/src/fleet/{lib,services,rest}/`.
+
+**Real bugs found only by actually calling the endpoints (not by code review):**
+- Building the INSERT's column set with `col ?? null` for every field (including ones the client
+  never sent) forced an explicit `NULL` into columns with a `NOT NULL DEFAULT` (`operation_scope`,
+  `ownership_type`) — Postgres only applies a column's `DEFAULT` when the column is *omitted* from
+  the INSERT entirely, not when it's present with a `NULL` value. Fixed by only including keys the
+  caller actually provided (`pickPresent`, not `pickFields`) when building create's `sets` object.
+- The `fleet.vehicle.upserted`/`fleet.trailer.upserted` event schemas require `status`, but the
+  service's `EVENT_FIELDS` pick list was built from `VEHICLE_ALL_FIELDS`/`TRAILER_ALL_FIELDS` —
+  which deliberately exclude `status` (it's only settable via the dedicated set-status action, not
+  create/update) — so every publish silently failed ajv validation and the event never went out
+  (`broker.send` swallows a validation failure and returns `false`; nothing surfaces it to the
+  caller, same as company-service's existing `emitCreated` never checking its own return value).
+  Fixed by adding `"status"` to `EVENT_FIELDS` explicitly, separate from the create/update field list.
+- A stale Docker anonymous volume for `/usr/app/core` (created back at Etap 1) still had old content
+  after `core/`'s `dist` was rebuilt on the host — `docker compose restart` and even a plain
+  `--build` don't touch an existing anonymous volume's content. Fix: `docker compose up -d --build
+  --force-recreate -V <service>` (`-V`/`--renew-anon-volumes` is the part that actually matters).
+
+**Verified end-to-end** (docker exec curl + psql, no Hasura/tester yet — see the Etap-1 note above,
+still true until Etap 7): create/update/delete/restore/set_status/registration_change all round-trip
+correctly; `expected_version` mismatch → `FLEET_VERSION_CONFLICT` with the real current version;
+duplicate VIN → `FLEET_DUPLICATE_VIN` (Postgres unique-violation caught and mapped, not pre-checked —
+avoids a race, matches the constraint name via `error.constraint`); Cyrillic registration numbers
+normalize to their Latin lookalikes (`СА5555КХ` → `CA5555KX`); the units limit blocks the 6th active
+vehicle on the `free` plan (`max_units=5`) and un-blocks after a delete frees a slot; `dispatcher`
+role is correctly forbidden from every write endpoint (owner/transport_manager only, per §9); a
+`fleet_vehicle.created` audit event published from fleet-service was independently confirmed to have
+reached `query_db.audit_log` over real Kafka — the whole event pipeline works end-to-end, not just
+within fleet-service's own transaction.
+
+**One added error code not in the spec's original §15 registry:** `FLEET_DUPLICATE_INTERNAL_CODE`
+(the `vehicles_internal_code_uq`/`trailers_internal_code_uq` partial unique index needed a mapped
+code and the registry didn't have one) — added to the spec file directly, documented here rather than
+asked about, since it's a pure additive extension with no conflicting semantics.
+
+**Next up:** Etap 3 — combinations (tractor + trailer), vehicle_drivers (both limits: per-vehicle and
+per-driver), driver profile.

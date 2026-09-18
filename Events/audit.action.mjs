@@ -25,7 +25,7 @@ export default {
     required: ["event_id", "actor_user_id", "company_id", "action", "target_type", "target_id", "at"],
     additionalProperties: false,
   },
-  producers: ["company-group", "auth-group"],
+  producers: ["company-group", "auth-group", "fleet-group"],
   consumers: {
     "query-group": { mode: "one" },
   },

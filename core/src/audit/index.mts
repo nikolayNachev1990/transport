@@ -10,6 +10,18 @@ export const AUDIT_ACTIONS = [
   "company_member.role_changed",
   "company_member.deleted",
   "company_member.deactivated_by_downgrade",
+  "fleet_vehicle.created",
+  "fleet_vehicle.updated",
+  "fleet_vehicle.status_changed",
+  "fleet_vehicle.deleted",
+  "fleet_vehicle.restored",
+  "fleet_vehicle.registration_changed",
+  "fleet_trailer.created",
+  "fleet_trailer.updated",
+  "fleet_trailer.status_changed",
+  "fleet_trailer.deleted",
+  "fleet_trailer.restored",
+  "fleet_trailer.registration_changed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
