@@ -11,6 +11,7 @@ export interface UploadRow {
   filename: string;
   path: string;
   user_id: string;
+  company_id: string | null;
   mime_type: string;
   // pg returns bigint columns as strings (avoids precision loss above
   // Number.MAX_SAFE_INTEGER) — never coerced to number here, propagated
@@ -33,7 +34,7 @@ class UploadService {
     });
   }
 
-  async createUpload(userId: string, filename: string, mimeType: string, meta: Record<string, unknown> = {}) {
+  async createUpload(userId: string, filename: string, mimeType: string, meta: Record<string, unknown> = {}, companyId: string | null = null) {
     if (!s3Config.allowedMimeTypes.includes(mimeType)) {
       return { success: false as const, message: `Not allowed MIME type: ${mimeType}`, code: "UNSUPPORTED_FILE_TYPE" };
     }
@@ -45,6 +46,7 @@ class UploadService {
       // the S3 key is derived from it (uploads/<id><extension>).
       path: "",
       user_id: userId,
+      company_id: companyId,
       mime_type: mimeType,
       meta,
     });
@@ -104,6 +106,8 @@ class UploadService {
     await broker.send("upload.completed", {
       id: completed.id,
       user_id: completed.user_id,
+      company_id: completed.company_id,
+      path: completed.path,
       mime_type: completed.mime_type,
       size: completed.size,
       updated_at: completed.updated_at,

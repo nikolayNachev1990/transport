@@ -90,7 +90,9 @@ class ExtractionService {
     }
 
     const knex = db.client();
-    let result: { ok: true; data: ExtractionRow; allowedTypeCodes: string[]; mimeType: string | null } | { ok: false; code: ExtractionErrorCode };
+    let result:
+      | { ok: true; data: ExtractionRow; allowedTypes: Record<string, unknown>[]; mimeType: string | null; storageKey: string }
+      | { ok: false; code: ExtractionErrorCode };
     try {
       result = await knex.transaction(async (trx) => {
       const file = await trx("files").where({ id: fileId, company_id: companyId }).first();
@@ -98,9 +100,25 @@ class ExtractionService {
       if (file.status === "rejected") return { ok: false, code: "FLEET_FILE_REJECTED" } as const;
 
       const subjectType = hints.vehicle_id ? "vehicle" : hints.trailer_id ? "trailer" : hints.driver_user_id ? "driver" : null;
-      const typesQuery = trx("document_types").where({ is_active: true });
-      const types = subjectType ? await typesQuery.andWhere({ subject_type: subjectType }) : await typesQuery;
-      const allowedTypeCodes = (types as { code: string }[]).map((t) => t.code);
+      const typesQuery = trx("document_types")
+        .where({ is_active: true })
+        .select([
+          "code",
+          "subject_type",
+          "category",
+          "applies_to_kinds",
+          "has_expiry",
+          "expiry_by_km",
+          "default_validity_months",
+          "default_validity_days",
+          "requires_number",
+          "has_country",
+          "multiple_active",
+          "required_when",
+          "attributes_schema",
+          "is_sensitive",
+        ]);
+      const allowedTypes = (subjectType ? await typesQuery.andWhere({ subject_type: subjectType }) : await typesQuery) as Record<string, unknown>[];
 
       const id = uuidv7();
       const [inserted] = await trx("document_extractions")
@@ -132,7 +150,13 @@ class ExtractionService {
         actorUserId,
       });
 
-      return { ok: true, data: inserted as ExtractionRow, allowedTypeCodes, mimeType: file.mime_type as string | null } as const;
+      return {
+        ok: true,
+        data: inserted as ExtractionRow,
+        allowedTypes,
+        mimeType: file.mime_type as string | null,
+        storageKey: file.storage_key as string,
+      } as const;
       });
     } catch (error) {
       const err = error as { code?: string; constraint?: string };
@@ -145,9 +169,10 @@ class ExtractionService {
       extraction_id: result.data.id,
       company_id: companyId,
       file_id: fileId,
+      file_key: result.storageKey,
       mime_type: result.mimeType,
       hints,
-      allowed_type_codes: result.allowedTypeCodes,
+      allowed_types: result.allowedTypes,
     });
     await publishAudit(companyId, actorUserId, "fleet_extraction.requested", "document_extraction", result.data.id);
     return { ok: true, data: { id: result.data.id, version: result.data.version }, warnings: [] };

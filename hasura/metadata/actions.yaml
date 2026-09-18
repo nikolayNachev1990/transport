@@ -854,6 +854,11 @@ actions:
       - role: admin
       - role: moderator
       - role: user
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: accountant
+      - role: driver
     comment: upload_create
 
   - name: upload_complete
@@ -875,6 +880,11 @@ actions:
       - role: admin
       - role: moderator
       - role: user
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: accountant
+      - role: driver
     comment: upload_complete
 
   - name: upload_get_url

@@ -15,10 +15,10 @@ const rest: RestDefinition = {
       type: "object",
       properties: {
         file_id: { type: "string", format: "uuid" },
-        vehicle_id: { type: "string", format: "uuid" },
-        trailer_id: { type: "string", format: "uuid" },
-        driver_user_id: { type: "string", format: "uuid" },
-        type_code: { type: "string" },
+        vehicle_id: { type: ["string", "null"], format: "uuid" },
+        trailer_id: { type: ["string", "null"], format: "uuid" },
+        driver_user_id: { type: ["string", "null"], format: "uuid" },
+        type_code: { type: ["string", "null"] },
       },
       required: ["file_id"],
       additionalProperties: false,
@@ -50,10 +50,10 @@ const rest: RestDefinition = {
 
     const service = new ExtractionService();
     const result = await service.request(companyId, userId, role, req.validated?.file_id as string, {
-      vehicle_id: req.validated?.vehicle_id as string | undefined,
-      trailer_id: req.validated?.trailer_id as string | undefined,
-      driver_user_id: req.validated?.driver_user_id as string | undefined,
-      type_code: req.validated?.type_code as string | undefined,
+      vehicle_id: req.validated?.vehicle_id as string | null | undefined,
+      trailer_id: req.validated?.trailer_id as string | null | undefined,
+      driver_user_id: req.validated?.driver_user_id as string | null | undefined,
+      type_code: req.validated?.type_code as string | null | undefined,
     });
     if (!result.ok) {
       respondFleetError(res, result.code);

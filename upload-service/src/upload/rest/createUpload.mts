@@ -35,12 +35,13 @@ const rest: RestDefinition = {
 
   entryPoint: async (req, res) => {
     const userId = req.hasuraUser!.id!;
+    const companyId = req.hasuraUser!.companyId ?? null;
     const filename = req.validated?.filename as string;
     const mimeType = req.validated?.mime_type as string;
     const meta = (req.validated?.meta as Record<string, unknown> | null) ?? {};
 
     const service = new UploadService();
-    const created = await service.createUpload(userId, filename, mimeType, meta);
+    const created = await service.createUpload(userId, filename, mimeType, meta, companyId);
     if (!created.success) {
       res.jsonError(422, "VALIDATION_ERRORS", { api_error: created.message, code: created.code });
       return;

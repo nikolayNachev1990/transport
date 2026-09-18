@@ -3,20 +3,21 @@ import tester from "tester";
 
 // Integration test for fleet-service, through Hasura's fleet_* actions —
 // covers Etaps 2-6 (vehicles/trailers, combinations, documents, odometer,
-// damage reports) against the real running stack. Kept as a permanent
+// damage reports) and the request/reject half of Etap 8's recognition
+// contract, against the real running stack. Kept as a permanent
 // regression file, same rule as company-membership.spec.mjs.
 //
-// NOT covered here, and why — both are pre-existing, already-documented
-// gaps (see PROJECT-CONTEXT.md's fleet-service section), not oversights:
+// NOT covered here, and why — a pre-existing, already-documented gap
+// (see PROJECT-CONTEXT.md's fleet-service section), not an oversight:
 //   - anything requiring a `drivers` row (driver profile, vehicle_drivers,
 //     driver-subject documents, driver-hinted extractions) — company-
 //     service's driver-invite flow doesn't exist yet, so there is no real
 //     way for company_role='driver' to ever reach fleet_db.drivers.
-//   - fleet_extraction_request — needs a `files` row in fleet_db, and
-//     that table has no consumer wired yet either (same Etap-1 decision:
-//     upload-service's real events don't carry what fleet's files table
-//     assumes). Both will get their own coverage once those upstream
-//     flows exist.
+//
+// The confirm half of the recognition contract (fleet_extraction_confirm)
+// still needs a real doc.extraction.completed event to reach `proposed`
+// first — doc-service doesn't exist yet (SPEC-doc-service.md), so that
+// path isn't covered here either; request/reject don't need it.
 describe("#Integration Fleet (fleet-service + query-service) — fleet.spec.mjs", function () {
   this.timeout(120000);
 
@@ -309,6 +310,89 @@ describe("#Integration Fleet (fleet-service + query-service) — fleet.spec.mjs"
         pick: (response) => response.data.data.fleet_damage_report_create,
       });
       expect(result).to.have.property("success", true);
+    });
+  });
+
+  describe("recognition — request/reject (SPEC-fleet-service.md §13)", function () {
+    it("uploads a file, requests extraction, then rejects it", async function () {
+      const helpers = await tester.helpers(this.config, ["hasura", "rest"]);
+
+      const created = await helpers.hasura.request({
+        name: "upload_create",
+        headers: authHeaders(),
+        vars: { filename: "talon.jpg", mime_type: "image/jpeg" },
+        pick: (response) => response.data.data.upload_create.data,
+      });
+
+      const put = await helpers.rest.request({
+        url: created.url,
+        method: "PUT",
+        body: Buffer.from("fake jpeg bytes"),
+        headers: { "content-type": "image/jpeg" },
+      });
+      expect(put.status).to.equal(200);
+
+      const completed = await helpers.hasura.request({
+        name: "upload_complete",
+        headers: authHeaders(),
+        vars: { uploadId: created.upload_id },
+        pick: (response) => response.data.data.upload_complete,
+      });
+      expect(completed).to.have.property("success", true);
+
+      // upload.completed -> fleet-service's files consumer needs a moment.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const requested = await helpers.hasura.request({
+        name: "fleet_extraction_request",
+        headers: authHeaders(),
+        vars: { file_id: created.upload_id },
+        pick: (response) => response.data.data.fleet_extraction_request,
+      });
+      expect(requested).to.have.property("success", true);
+
+      const rejected = await helpers.hasura.request({
+        name: "fleet_extraction_reject",
+        headers: authHeaders(),
+        vars: { id: requested.data.id, reason: "tester cleanup" },
+        pick: (response) => response.data.data.fleet_extraction_reject,
+      });
+      expect(rejected).to.have.property("success", true);
+    });
+
+    it("rejects a duplicate request for the same file > FLEET_EXTRACTION_ALREADY_REQUESTED", async function () {
+      const helpers = await tester.helpers(this.config, ["hasura", "rest"]);
+
+      const created = await helpers.hasura.request({
+        name: "upload_create",
+        headers: authHeaders(),
+        vars: { filename: "talon2.jpg", mime_type: "image/jpeg" },
+        pick: (response) => response.data.data.upload_create.data,
+      });
+      await helpers.rest.request({ url: created.url, method: "PUT", body: Buffer.from("fake jpeg bytes"), headers: { "content-type": "image/jpeg" } });
+      await helpers.hasura.request({
+        name: "upload_complete",
+        headers: authHeaders(),
+        vars: { uploadId: created.upload_id },
+        pick: (response) => response.data,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const first = await helpers.hasura.request({
+        name: "fleet_extraction_request",
+        headers: authHeaders(),
+        vars: { file_id: created.upload_id },
+        pick: (response) => response.data.data.fleet_extraction_request,
+      });
+      expect(first).to.have.property("success", true);
+
+      const second = await helpers.hasura.request({
+        name: "fleet_extraction_request",
+        headers: authHeaders(),
+        vars: { file_id: created.upload_id },
+        pick: (response) => response.data,
+      });
+      expect(second.errors?.[0]?.extensions?.[0]?.code).to.equal("FLEET_EXTRACTION_ALREADY_REQUESTED");
     });
   });
 });
