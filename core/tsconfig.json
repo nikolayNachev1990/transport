@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2024",
+    "lib": ["es2024"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    // Verified, not habit: @elastic/elasticsearch's own esm/helpers.d.ts
+    // (node_modules/@elastic/elasticsearch/esm/helpers.d.ts:3) imports types
+    // from "apache-arrow/Arrow.node.js" — an optional peer for a streaming
+    // helper this codebase never imports (only `Client` from the package
+    // root is used). apache-arrow is a large dependency and isn't installed;
+    // without skipLibCheck this third-party .d.ts fails to resolve even
+    // though nothing here actually uses it.
+    "skipLibCheck": true,
+    // tsc 7.x (the native/Go compiler) does NOT auto-include node_modules/@types/*
+    // packages the way classic tsc always did — @types/node was installed but
+    // silently left out of the compilation until this was added explicitly.
+    // Verified directly: `tsc --noEmit --listFiles` showed zero @types/node
+    // files without this; `Cannot find name 'URL'` was the symptom. Every
+    // service's tsconfig.json needs this same explicit "types" entry, or the
+    // same failure repeats per-service.
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}

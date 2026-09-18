@@ -1,0 +1,6 @@
+query tester_auth_get_signup_code($account: String!, $system: String!) {
+  auth_get_signup_code(account: $account, system: $system) {
+    success
+    data
+  }
+}

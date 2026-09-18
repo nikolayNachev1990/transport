@@ -1,0 +1,24 @@
+{
+  "name": "core-service",
+  "version": "1.0.0",
+  "description": "Kafka bootstrap (creates every topic Events/ declares) + the cron dispatcher that fires scheduled trigger events (qrcodes.clear.queue, ...) other services consume",
+  "main": "./dist/index.mjs",
+  "scripts": {
+    "dev": "nodemon",
+    "prod": "node ./dist/index.mjs"
+  },
+  "author": "Vladislav Radev",
+  "license": "ISC",
+  "dependencies": {
+    "@transport/core": "file:./core",
+    "glob": "10.5.0",
+    "kafkajs": "2.2.4",
+    "node-cron": "3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "@types/node-cron": "3.0.11",
+    "nodemon": "3.1.14",
+    "typescript": "7.0.2"
+  }
+}

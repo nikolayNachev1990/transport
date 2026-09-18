@@ -1,0 +1,6 @@
+mutation tester_company_create($name: String!, $eik: String!, $country: String!, $is_customer: Boolean!, $is_tenant: Boolean!) {
+  company_create(name: $name, eik: $eik, country: $country, is_customer: $is_customer, is_tenant: $is_tenant) {
+    success
+    data
+  }
+}

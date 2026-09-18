@@ -1,0 +1,6 @@
+mutation tester_auth_user_avatar_update($upload_id: String!, $extension: String!) {
+  auth_user_avatar_update(upload_id: $upload_id, extension: $extension) {
+    success
+    data
+  }
+}

@@ -1,0 +1,29 @@
+FROM node:lts-slim
+
+# WORKDIR ............
+WORKDIR /usr/app
+
+RUN apt update
+RUN apt install -y git bash curl 
+
+ARG NEXT_PUBLIC_ENV
+ENV NEXT_PUBLIC_ENV ${NEXT_PUBLIC_ENV}
+ARG SENTRY_AUTH_TOKEN
+ENV SENTRY_AUTH_TOKEN ${SENTRY_AUTH_TOKEN}
+ARG NEXT_PUBLIC_TENANT
+ENV NEXT_PUBLIC_TENANT ${NEXT_PUBLIC_TENANT}
+
+# COPY ...........
+COPY ./web/ /usr/app/
+
+# Build and install
+RUN npm install -g pnpm@latest-10
+RUN pnpm install
+RUN npm run tr:build
+RUN npm run build
+
+
+# START ........... 
+CMD npx next start -H 0.0.0.0 -p 3000
+
+

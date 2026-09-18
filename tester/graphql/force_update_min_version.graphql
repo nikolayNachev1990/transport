@@ -1,0 +1,8 @@
+query tester_force_update_min_version {
+  force_update_min_version {
+    id
+    android
+    ios
+    platform
+  }
+}

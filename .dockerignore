@@ -1,0 +1,29 @@
+# Build context is the repo root (docker-compose.yaml sets context: .) —
+# this applies to every service's build, not just auth-service.
+**/node_modules
+# core/dist is a required pre-built artifact (COPY core ./core ships it
+# as-is, nothing rebuilds core inside the container) — only exclude build
+# output for services that actually build inside their own Dockerfile.
+auth-service/dist
+query-service/dist
+core-service/dist
+upload-service/dist
+company-service/dist
+fleet-service/dist
+**/tmp
+.git
+npm-debug.log
+.env
+.env.*
+
+# Host-only convenience symlink (so `npm install`/`tsc` work outside
+# Docker, where core/ is a sibling of each service dir instead of a child
+# copied in by that service's Dockerfile) — must not be copied into any
+# image, or it overwrites the real core/ that COPY core ./core already
+# placed there.
+auth-service/core
+query-service/core
+core-service/core
+upload-service/core
+company-service/core
+fleet-service/core

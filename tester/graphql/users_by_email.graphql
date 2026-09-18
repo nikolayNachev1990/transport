@@ -1,0 +1,8 @@
+query tester_users_by_email($email: String!) {
+  users(where: { email: { _eq: $email } }) {
+    id
+    name
+    email
+    avatar
+  }
+}

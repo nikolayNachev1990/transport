@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "target": "es2024",
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "lib": ["es2024"],
+    // Required for package.json "exports" subpaths (@transport/core/db,
+    // /config, /server, ...) to resolve at all — classic "node" resolution
+    // (what this file had before) ignores "exports" entirely.
+    "skipLibCheck": true,
+    // tsc 7.x doesn't auto-include node_modules/@types/* — see the same
+    // note in core/tsconfig.json.
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

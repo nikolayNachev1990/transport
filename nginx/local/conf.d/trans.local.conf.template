@@ -1,0 +1,149 @@
+server {
+    listen 80;
+    server_name trapflix.local;
+
+    client_max_body_size 10m;
+    access_log /dev/stdout;
+    access_log /home/nginx-logs/trapflix.local-access.log;
+    error_log /home/nginx-logs/trapflix.local-error.log;
+
+    error_log /dev/stderr warn;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 30s;
+    location / {
+        set $${ESC}inner_nginx http://trapflix-nginx:80;
+        proxy_pass $${ESC}inner_nginx;
+        proxy_http_version 1.1;
+        proxy_set_header Host $${ESC}host;
+        proxy_set_header X-Real-IP $${ESC}remote_addr;
+        proxy_set_header X-Forwarded-For $${ESC}proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $${ESC}host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Upgrade $${ESC}http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_intercept_errors on;
+        error_page 502 503 504 @custom_error;
+    }
+    location @custom_error {
+        default_type text/plain;
+        return 503 'Service is not available';
+    }
+}
+
+
+server {
+    listen 80;
+    server_name dashboard_trapflix.local;
+
+    client_max_body_size 10m;
+    access_log /dev/stdout;
+    access_log /home/nginx-logs/dashboard.trapflix.local-access.log;
+    error_log /home/nginx-logs/dashboard.trapflix.local-error.log;
+
+    error_log /dev/stderr warn;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 30s;
+    location / {
+        set $${ESC}inner_nginx http://trapflix-nginx:8001;
+        proxy_pass $${ESC}inner_nginx;
+        proxy_http_version 1.1;
+        proxy_set_header Host $${ESC}host;
+        proxy_set_header X-Real-IP $${ESC}remote_addr;
+        proxy_set_header X-Forwarded-For $${ESC}proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $${ESC}host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Upgrade $${ESC}http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_intercept_errors on;
+        error_page 502 503 504 @custom_error;
+    }
+    location @custom_error {
+        default_type text/plain;
+        return 503 'Service is not available';
+    }
+}
+
+server {
+    listen 80;
+    server_name dashboard_trapflix.local;
+
+    client_max_body_size 10m;
+    access_log /dev/stdout;
+    access_log /home/nginx-logs/dashboard.trapflix.local-access.log;
+    error_log /home/nginx-logs/dashboard.trapflix.local-error.log;
+
+    error_log /dev/stderr warn;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 30s;
+    location / {
+        set $${ESC}inner_nginx http://trapflix-nginx:8001;
+        proxy_pass $${ESC}inner_nginx;
+        proxy_http_version 1.1;
+        proxy_set_header Host $${ESC}host;
+        proxy_set_header X-Real-IP $${ESC}remote_addr;
+        proxy_set_header X-Forwarded-For $${ESC}proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $${ESC}host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Upgrade $${ESC}http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_intercept_errors on;
+        error_page 502 503 504 @custom_error;
+    }
+    location @custom_error {
+        default_type text/plain;
+        return 503 'Service is not available';
+    }
+}
+
+
+server {
+    listen 80;
+    server_name website_trapflix.local;
+
+    client_max_body_size 10m;
+    access_log /dev/stdout;
+    access_log /home/nginx-logs/website.trapflix.local-access.log;
+    error_log /home/nginx-logs/website.trapflix.local-error.log;
+
+    error_log /dev/stderr warn;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 30s;
+    location / {
+        set $${ESC}inner_nginx http://trapflix-nginx:8002;
+        proxy_pass $${ESC}inner_nginx;
+        proxy_http_version 1.1;
+        proxy_set_header Host $${ESC}host;
+        proxy_set_header X-Real-IP $${ESC}remote_addr;
+        proxy_set_header X-Forwarded-For $${ESC}proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $${ESC}host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Upgrade $${ESC}http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_intercept_errors on;
+        error_page 502 503 504 @custom_error;
+    }
+    location @custom_error {
+        default_type text/plain;
+        return 503 'Service is not available';
+    }
+}

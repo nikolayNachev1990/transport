@@ -1,0 +1,6 @@
+mutation tester_company_update_plan($companyId: String!, $subscription_plan: String!) {
+  company_update(companyId: $companyId, subscription_plan: $subscription_plan) {
+    success
+    data
+  }
+}

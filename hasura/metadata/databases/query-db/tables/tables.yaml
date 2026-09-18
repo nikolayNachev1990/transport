@@ -1,0 +1,6 @@
+- "!include public_users.yaml"
+- "!include public_force_update_min_version.yaml"
+- "!include public_companies.yaml"
+- "!include public_members.yaml"
+- "!include public_pending_users.yaml"
+- "!include public_audit_log.yaml"

@@ -1,0 +1,97 @@
+table:
+  name: members
+  schema: public
+select_permissions:
+  - role: moderator
+    permission:
+      columns:
+        - user_id
+        - company_id
+        - company_role
+        - is_active
+        - is_creator
+        - created_by
+        - activated_at
+        - deleted_at
+        - created_at
+        - updated_at
+      filter: {}
+      limit: 1000
+      allow_aggregations: true
+  # Every company_role sees the same thing: the roster of its own
+  # company, active or not (spec: "Ще се показват в списък активни или
+  # не" — never hidden, just flagged). Scoped by X-Hasura-Company-Id, the
+  # same session variable the hasura webhook already verified an active
+  # membership for — never trust a client-supplied company_id here.
+  - role: owner
+    permission:
+      columns:
+        - user_id
+        - company_id
+        - company_role
+        - is_active
+        - is_creator
+        - created_by
+        - activated_at
+        - deleted_at
+        - created_at
+        - updated_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - user_id
+        - company_id
+        - company_role
+        - is_active
+        - is_creator
+        - created_by
+        - activated_at
+        - deleted_at
+        - created_at
+        - updated_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - user_id
+        - company_id
+        - company_role
+        - is_active
+        - is_creator
+        - created_by
+        - activated_at
+        - deleted_at
+        - created_at
+        - updated_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - user_id
+        - company_id
+        - company_role
+        - is_active
+        - is_creator
+        - created_by
+        - activated_at
+        - deleted_at
+        - created_at
+        - updated_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

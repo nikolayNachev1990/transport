@@ -1,0 +1,6 @@
+mutation tester_upload_complete($uploadId: String!) {
+  upload_complete(uploadId: $uploadId) {
+    success
+    data
+  }
+}

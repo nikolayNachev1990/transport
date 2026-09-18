@@ -1,0 +1,901 @@
+services:
+  # Query resource: hasura, query-db, query-service :::::::::::::::::::::::::::::::::::::::::::::::::::
+  # hasura: tracks query-db's tables + proxies GraphQL actions to
+  # auth-service's REST endpoints (see hasura/metadata/actions.yaml). Its
+  # own metadata catalog lives in a separate hasura-db, not query-db
+  # itself (same separation the testdope reference used).
+  hasura:
+    container_name: hasura
+    # cli-migrations-v3 variant, not plain — it's the one that actually
+    # auto-applies HASURA_GRAPHQL_METADATA_DIR (tracked tables + actions)
+    # at container startup; the plain image boots with an empty catalog
+    # and needs metadata pushed manually via the API/CLI.
+    image: hasura/graphql-engine:latest.cli-migrations-v3
+    ports:
+      - "${HASURA_PORTS}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      hasura-db:
+        condition: service_healthy
+      query-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    restart: always
+    volumes:
+      - ./hasura:/hasura-config
+    deploy:
+      resources:
+        limits:
+          memory: ${HASURA_GRAPHQL_RAM_MAX}
+        reservations:
+          memory: ${HASURA_GRAPHQL_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: ${HASURA_DB_URL}
+      HASURA_GRAPHQL_DATABASE_URL: ${QUERY_DB_URL}
+      HASURA_GRAPHQL_METADATA_DIR: /hasura-config/metadata
+      HASURA_GRAPHQL_MIGRATIONS_DIR: /hasura-config/migrations
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET}
+      HASURA_GRAPHQL_AUTH_HOOK: ${HASURA_GRAPHQL_AUTH_HOOK}
+      HASURA_GRAPHQL_AUTH_HOOK_MODE: ${HASURA_GRAPHQL_AUTH_HOOK_MODE}
+      HASURA_GRAPHQL_ENABLE_REMOTE_SCHEMA_PERMISSIONS: "true"
+      HASURA_GRAPHQL_DEV_MODE: ${HASURA_GRAPHQL_DEV_MODE}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: ${HASURA_GRAPHQL_ENABLE_CONSOLE}
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: ${HASURA_GRAPHQL_ENABLED_LOG_TYPES}
+
+  # Hasura's own metadata catalog database — separate from query-db (the
+  # tracked business data) on purpose, so Hasura's internal bookkeeping
+  # tables never show up alongside the real, synced tables.
+  hasura-db:
+    container_name: hasura-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HASURA_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${HASURA_DB_RAM_MAX}
+        reservations:
+          memory: ${HASURA_DB_RAM_RESERVED}
+    volumes:
+      - hasura-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${HASURA_DB_NAME}
+      POSTGRES_USER: ${HASURA_DB_USER}
+      POSTGRES_PASSWORD: ${HASURA_DB_PASS}
+
+  # query-service: connects to its own DB + Kafka only for now — no REST,
+  # no event consumers wired in yet (see query-service/src/config/broker.mts).
+  query-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./query-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./query-service:/usr/app
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      query-db:
+        condition: service_healthy
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: ${QUERY_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${QUERY_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_NAME: ${QUERY_SERVICE_NAME}
+      APP_PORT: 80
+      DATABASE_URL: ${QUERY_DB_URL}
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      QUERY_KAFKA_GROUP: ${QUERY_KAFKA_GROUP}
+      QUERY_KAFKA_GROUP_ID: ${QUERY_KAFKA_GROUP_ID}
+      # For src/seeds/*_users.js — same 3 bootstrap accounts auth-service
+      # seeds, standing in for the real Kafka sync until that's wired up.
+      ADMIN_USER_ID: ${ADMIN_USER_ID}
+      ADMIN_USER_NAME: ${ADMIN_USER_NAME}
+      ADMIN_USER_EMAIL: ${ADMIN_USER_EMAIL}
+      ADMIN_USER_ROLE: ${ADMIN_USER_ROLE}
+      MODERATOR_USER_ID: ${MODERATOR_USER_ID}
+      MODERATOR_USER_NAME: ${MODERATOR_USER_NAME}
+      MODERATOR_USER_EMAIL: ${MODERATOR_USER_EMAIL}
+      MODERATOR_USER_ROLE: ${MODERATOR_USER_ROLE}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Query Service Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  query-db:
+    container_name: query-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${QUERY_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${QUERY_DB_RAM_MAX}
+        reservations:
+          memory: ${QUERY_DB_RAM_RESERVED}
+    volumes:
+      - query-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${QUERY_DB_NAME}
+      POSTGRES_USER: ${QUERY_DB_USER}
+      POSTGRES_PASSWORD: ${QUERY_DB_PASS}
+
+  # core-service: creates every Kafka topic Events/ declares at startup,
+  # and dispatches the scheduled cron-trigger events (qrcodes.clear.queue,
+  # ...) other services consume. No database of its own.
+  core-service:
+    container_name: core-service
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./core-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./core-service:/usr/app
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: ${CORE_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${CORE_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_NAME: ${CORE_SERVICE_NAME}
+      APP_PORT: 80
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      CORE_KAFKA_GROUP: ${CORE_KAFKA_GROUP}
+      CORE_KAFKA_GROUP_ID: ${CORE_KAFKA_GROUP_ID}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Upload resource: upload-service, upload-db, minio (local stand-in for
+  # Cloudflare R2) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  upload-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./upload-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./upload-service:/usr/app
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      upload-db:
+        condition: service_healthy
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${UPLOAD_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${UPLOAD_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_NAME: ${UPLOAD_SERVICE_NAME}
+      APP_PORT: 80
+      DATABASE_URL: ${UPLOAD_DB_URL}
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      UPLOAD_KAFKA_GROUP: ${UPLOAD_KAFKA_GROUP}
+      UPLOAD_KAFKA_GROUP_ID: ${UPLOAD_KAFKA_GROUP_ID}
+      CRON_TIMEOUT: ${CRON_TIMEOUT}
+      UPLOAD_STALE_QUEUE_HOURS: ${UPLOAD_STALE_QUEUE_HOURS}
+      S3_TYPE: ${S3_TYPE}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ENDPOINT_IN_DOCKER: ${S3_ENDPOINT_IN_DOCKER}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      UPLOAD_PRESIGNED_URL_EXPIRE_SECONDS: ${UPLOAD_PRESIGNED_URL_EXPIRE_SECONDS}
+      UPLOAD_MAX_FILE_SIZE_BYTES: ${UPLOAD_MAX_FILE_SIZE_BYTES}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Upload Service Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  upload-db:
+    container_name: upload-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${UPLOAD_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${UPLOAD_DB_RAM_MAX}
+        reservations:
+          memory: ${UPLOAD_DB_RAM_RESERVED}
+    volumes:
+      - upload-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${UPLOAD_DB_NAME}
+      POSTGRES_USER: ${UPLOAD_DB_USER}
+      POSTGRES_PASSWORD: ${UPLOAD_DB_PASS}
+
+  # Company resource: company-service, company-db — registry of companies
+  # and their users, mints company_id/user_id for every other service.
+  # :::::::::::::::::::::::::::::::::::::::::::::::::::
+  company-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./company-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./company-service:/usr/app
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      company-db:
+        condition: service_healthy
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: ${COMPANY_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${COMPANY_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_NAME: ${COMPANY_SERVICE_NAME}
+      APP_PORT: 80
+      DATABASE_URL: ${COMPANY_DB_URL}
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      COMPANY_KAFKA_GROUP: ${COMPANY_KAFKA_GROUP}
+      COMPANY_KAFKA_GROUP_ID: ${COMPANY_KAFKA_GROUP_ID}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      S3_TYPE: ${S3_TYPE}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ENDPOINT_IN_DOCKER: ${S3_ENDPOINT_IN_DOCKER}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      COMPANY_LOGO_URL_EXPIRE_SECONDS: ${COMPANY_LOGO_URL_EXPIRE_SECONDS}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Company Service Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  company-db:
+    container_name: company-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${COMPANY_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${COMPANY_DB_RAM_MAX}
+        reservations:
+          memory: ${COMPANY_DB_RAM_RESERVED}
+    volumes:
+      - company-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${COMPANY_DB_NAME}
+      POSTGRES_USER: ${COMPANY_DB_USER}
+      POSTGRES_PASSWORD: ${COMPANY_DB_PASS}
+
+  # Fleet resource: fleet-service, fleet-db — owner of the physical fleet
+  # (vehicles, trailers, drivers, documents, compliance). See
+  # SPEC-fleet-service.md. No S3 wiring — fleet never touches file
+  # storage directly, only the files metadata mirror synced from
+  # upload-service's events.
+  # :::::::::::::::::::::::::::::::::::::::::::::::::::
+  fleet-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./fleet-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./fleet-service:/usr/app
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      fleet-db:
+        condition: service_healthy
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: ${FLEET_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${FLEET_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_NAME: ${FLEET_SERVICE_NAME}
+      APP_PORT: 80
+      DATABASE_URL: ${FLEET_DB_URL}
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      FLEET_KAFKA_GROUP: ${FLEET_KAFKA_GROUP}
+      FLEET_KAFKA_GROUP_ID: ${FLEET_KAFKA_GROUP_ID}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Fleet Service Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  fleet-db:
+    container_name: fleet-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FLEET_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${FLEET_DB_RAM_MAX}
+        reservations:
+          memory: ${FLEET_DB_RAM_RESERVED}
+    volumes:
+      - fleet-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${FLEET_DB_NAME}
+      POSTGRES_USER: ${FLEET_DB_USER}
+      POSTGRES_PASSWORD: ${FLEET_DB_PASS}
+
+# Auth Service  :::::::::::::::::::::::::::::::::::::::::::::::::::
+  auth-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./auth-service/Dockerfile
+      target: ${DOCKER_MODE}
+
+    volumes:
+      - ./auth-service:/usr/app
+      # Anonymous volumes: these paths are populated at image build time
+      # (npm install, and the COPY of core/Events/langs) — without them the
+      # bind mount above would replace the whole /usr/app with the host
+      # folder and wipe all of that out from under the running container.
+      - /usr/app/node_modules
+      - /usr/app/core
+      - /usr/app/Events
+      - /usr/app/langs
+      - /usr/app/tmp
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      core-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTH_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${AUTH_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    # Var names on the left are exactly what src/config/*.mts's loadConfig
+    # calls read (see auth-service/src/config/) — not the AUTH_SERVICE_*-
+    # prefixed names .env uses to namespace them across services.
+    environment:
+      MODE: ${MODE}
+      NODE_ENV: ${MODE}
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+      SERVICE_LANGS: ${SERVICE_LANGS}
+      SERVICE_LANGS_DIRECTORY: ${SERVICE_LANGS_DIRECTORY}
+      SERVICE_LANGS_DEFAULTLOCALE: ${SERVICE_LANGS_DEFAULTLOCALE}
+      SERVICE_LANGS_HEADER: ${SERVICE_LANGS_HEADER}
+      SERVICE_LANGS_QUERYPARAMETER: ${SERVICE_LANGS_QUERYPARAMETER}
+      SERVICE_NAME: ${AUTH_SERVICE_NAME}
+      WEB_APP_URL: ${WEB_APP_URL}
+      APP_URL: ${APP_URL}
+      APP_PORT: 80
+      DATABASE_URL: ${AUTH_DB_URL}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_AUTH_CACHE_PREFIX: ${REDIS_AUTH_CACHE_PREFIX}
+      IDEMPOTENCE_KEY_EXPIRATION_DAYS: ${IDEMPOTENCE_KEY_EXPIRATION_DAYS}
+      TRUSTED_IPS: ${TRUSTED_IPS}
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      AUTH_KAFKA_GROUP: ${AUTH_KAFKA_GROUP}
+      AUTH_KAFKA_GROUP_ID: ${AUTH_KAFKA_GROUP_ID}
+      ACCESS_TOKEN_LIFETIME: ${AUTH_SERVICE_ACCESS_TOKEN_LIFETIME}
+      REFRESH_TOKEN_LIFETIME: ${AUTH_SERVICE_REFRESH_TOKEN_LIFETIME}
+      COOKIE_TTL_LIFETIME: ${AUTH_SERVICE_COOKIE_TTL_LIFETIME}
+      LOGIN_LIMIT: ${AUTH_SERVICE_LOGIN_LIMIT}
+      TESTER_HEADER_KEY: ${AUTH_SERVICE_TESTER_HEADER_KEY}
+      TESTER_SECRET_KEY: ${AUTH_SERVICE_TESTER_SECRET_KEY}
+      GOOGLE_LOGIN_CLIENT_ID: ${AUTH_SERVICE_GOOGLE_LOGIN_CLIENT_ID}
+      GOOGLE_LOGIN_CLIENT_SECRET: ${AUTH_SERVICE_GOOGLE_LOGIN_CLIENT_SECRET}
+      GOOGLE_LOGIN_CLIENT_CALLBACK_URL: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/google/callback
+      GOOGLE_LOGIN_CLIENT_CALLBACK_URL_WEB: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/google/callback/web
+      GOOGLE_LOGIN_CLIENT_REDIRECT_URL_WEB: ${AUTH_SERVICE_LOGIN_REDIRECT_URL_WEB}
+      GOOGLE_LOGIN_CLIENT_CALLBACK_URL_EXPO: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/google/callback/expo
+      GOOGLE_LOGIN_CLIENT_REDIRECT_URL_EXPO: ${AUTH_SERVICE_LOGIN_REDIRECT_URL_EXPO}
+      APPLE_LOGIN_CLIENT_ID: ${AUTH_SERVICE_APPLE_LOGIN_CLIENT_ID}
+      APPLE_LOGIN_TEAM_ID: ${AUTH_SERVICE_APPLE_LOGIN_TEAM_ID}
+      APPLE_LOGIN_KEY_ID: ${AUTH_SERVICE_APPLE_LOGIN_KEY_ID}
+      APPLE_LOGIN_KEY_FILEPATH: ${AUTH_SERVICE_APPLE_LOGIN_KEY_FILEPATH}
+      APPLE_LOGIN_CLIENT_CALLBACK_URL: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/apple/callback
+      APPLE_LOGIN_CLIENT_CALLBACK_URL_WEB: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/apple/callback/web
+      APPLE_LOGIN_CLIENT_REDIRECT_URL_WEB: ${AUTH_SERVICE_LOGIN_REDIRECT_URL_WEB}
+      APPLE_LOGIN_CLIENT_CALLBACK_URL_EXPO: ${AUTH_SERVICE_LOGIN_CALLBACK_BASE_URL}/apple/callback/expo
+      APPLE_LOGIN_CLIENT_REDIRECT_URL_EXPO: ${AUTH_SERVICE_LOGIN_REDIRECT_URL_EXPO}
+      AUTHORIZATION_CODE_REDIRECT_URL: ${AUTH_SERVICE_AUTHORIZATION_CODE_REDIRECT_URL}
+      QRCODE_LOGO_BASE64: ${QRCODE_LOGO_BASE64}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      ELASTICSEARCH_USER: ${ELASTICSEARCH_USER}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      TWILIO_STATUS: ${TWILIO_STATUS}
+      TWILIO_FROM_NAME: ${TWILIO_FROM_NAME}
+      TWILIO_NUMBER: ${TWILIO_NUMBER}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      S3_TYPE: ${S3_TYPE}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ENDPOINT_IN_DOCKER: ${S3_ENDPOINT_IN_DOCKER}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      CRON_TIMEOUT: ${CRON_TIMEOUT}
+      ADMIN_USER_ID: ${ADMIN_USER_ID}
+      ADMIN_USER_NAME: ${ADMIN_USER_NAME}
+      ADMIN_USER_EMAIL: ${ADMIN_USER_EMAIL}
+      ADMIN_USER_PASS: ${ADMIN_USER_PASS}
+      ADMIN_USER_ROLE: ${ADMIN_USER_ROLE}
+      MODERATOR_USER_ID: ${MODERATOR_USER_ID}
+      MODERATOR_USER_NAME: ${MODERATOR_USER_NAME}
+      MODERATOR_USER_EMAIL: ${MODERATOR_USER_EMAIL}
+      MODERATOR_USER_PASS: ${MODERATOR_USER_PASS}
+      MODERATOR_USER_ROLE: ${MODERATOR_USER_ROLE}
+      PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+
+  # Auth Service Primary Database (Postgresql) :::::::::::::::::::::::::::::::::::::::::::::::::::
+  auth-db:
+    container_name: auth-db
+    image: postgres:${POSTGRES_VERSION}
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER} -h localhost"]
+      interval: ${HEALTHCHECK_DB_INTERVAL}
+      timeout: ${HEALTHCHECK_DB_TIMEOUT}
+      retries: ${HEALTHCHECK_DB_RETRIES}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTH_DB_RAM_MAX}
+        reservations:
+          memory: ${AUTH_DB_RAM_RESERVED}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASS}
+
+  # Notification service
+  # Commented out — not needed while auth-service is the only service under active development.
+  # notification-service:
+  #   restart: unless-stopped
+  #   build:
+  #     context: .
+  #     dockerfile: ./notification-service/Dockerfile
+  #     target: ${DOCKER_MODE}
+  #   volumes:
+  #     - ./notification-service:/usr/app
+  #     - /usr/app/tmp
+  #   expose:
+  #     - 80
+  #   healthcheck:
+  #     test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+  #     interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+  #     timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+  #     retries: ${HEALTHCHECK_SERVICE_RETRIES}
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: ${MAILER_SERVICE_RAM_MAX}
+  #       reservations:
+  #         memory: ${MAILER_SERVICE_RAM_RESERVED}
+  #   networks:
+  #     - ${NETWORK_MAIN_NAME}
+  #   environment:
+  #     NODE_ENV: ${MODE}
+  #     NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
+  #     SERVICE_NAME: ${MAILER_SERVICE_NAME}
+  #     WEB_APP_URL: ${WEB_APP_URL}
+  #     APP_URL: ${APP_URL}
+  #     APP_PORT: 80
+  #     REDIS_HOST: ${REDIS_HOST}
+  #     REDIS_PASSWORD: ${REDIS_PASSWORD}
+  #     KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+  #     KAFKA_GROUP: ${MAILER_KAFKA_GROUP}
+  #     KAFKA_GROUP_ID: ${MAILER_KAFKA_GROUP_ID}
+  #     EMAIL_SERVICE_PROVIDER: ${EMAIL_SERVICE_PROVIDER}
+  #     MAILGUN_DOMAIN: ${MAILGUN_DOMAIN}
+  #     MAILGUN_APIKEY: ${MAILGUN_APIKEY}
+  #     MAILGUN_FROM: ${MAILGUN_FROM}
+  #     SENDGRID_APIKEY: ${SENDGRID_APIKEY}
+  #     SENDGRID_FROM: ${SENDGRID_FROM}
+  #     LOGGER_LABEL: "${LOGGER_LABEL} ${LOGGER_LABEL_MAILER_SERVICE}"
+  #     LOGGER_LIST: ${LOGGER_LIST}
+  #     LOGGER_CONSOLE_MODES: ${LOGGER_CONSOLE_MODES}
+  #     LOGGER_SENTRY_MODES: ${LOGGER_SENTRY_MODES}
+  #     LOGGER_SENTRY_DSN: ${LOGGER_SENTRY_DSN}
+  #     LOGGER_SLACK_MODES: ${LOGGER_SLACK_MODES}
+  #     LOGGER_SLACK_CHANNEL: ${LOGGER_SLACK_CHANNEL}
+  #     LOGGER_SLACK_TOKEN: ${LOGGER_SLACK_TOKEN}
+
+  # redis :::::::::::::::::::::::::::::::::::::::::::::::::::
+  redis:
+    container_name: redis
+    image: redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    restart: always
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    expose:
+      - 6379
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - cache:/data
+
+  # kafka 1 :::::::::::::::::::::::::::::::::::::::::::::::::::
+  kafka-1:
+    container_name: kafka-1
+    image: apache/kafka:4.1.0
+    user: "0:0"
+    hostname: ${KAFKA_1_HOST}
+    expose:
+      - 9092
+      - 9093
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092 --list >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${KAFKA_RAM_MAX}
+        reservations:
+          memory: ${KAFKA_RAM_RESERVED}
+    volumes:
+      - kafka_1_data:/bitnami/kafka
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      KAFKA_CLUSTER_ID: ${KAFKA_KRAFT_CLUSTER_ID}
+      KAFKA_NODE_ID: ${KAFKA_1_CFG_NODE_ID}
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: ${KAFKA_CFG_CONTROLLER_QUORUM_VOTERS}
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: ${KAFKA_1_CFG_LISTENERS} # PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_1_CFG_ADVERTISED_LISTENERS}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LOG_DIRS: /bitnami/kafka
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: "10"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR}
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "100"
+      KAFKA_HEAP_OPTS: "-Xmx1024M -Xms128M"
+
+  # kafka 2 :::::::::::::::::::::::::::::::::::::::::::::::::::
+  kafka-2:
+    container_name: kafka-2
+    image: apache/kafka:4.1.0
+    user: "0:0"
+    hostname: ${KAFKA_2_HOST}
+    expose:
+      - 9092
+      - 9093
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-2:9092 --list >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${KAFKA_RAM_MAX}
+        reservations:
+          memory: ${KAFKA_RAM_RESERVED}
+    volumes:
+      - kafka_2_data:/bitnami/kafka
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      KAFKA_CLUSTER_ID: ${KAFKA_KRAFT_CLUSTER_ID}
+      KAFKA_NODE_ID: ${KAFKA_2_CFG_NODE_ID}
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: ${KAFKA_CFG_CONTROLLER_QUORUM_VOTERS}
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: ${KAFKA_2_CFG_LISTENERS}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_2_CFG_ADVERTISED_LISTENERS}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LOG_DIRS: /bitnami/kafka
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: "10"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR}
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "100"
+      KAFKA_HEAP_OPTS: "-Xmx1024M -Xms128M"
+
+  # webserver :::::::::::::::::::::::::::::::::::::::::::::::::::
+  # Commented out — not needed while auth-service is the only service under active development.
+  # webserver:
+  #   container_name: webserver
+  #   build:
+  #     context: ./nginx
+  #     dockerfile: ./${DOCKERFILE_MODE}/Dockerfile
+  #   healthcheck:
+  #     test: curl -sS http://localhost/ || exit 1
+  #     interval: 30s
+  #     timeout: 30s
+  #     retries: 5
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   restart: always
+  #   volumes:
+  #     #- ./nginx/local/conf.d:/etc/nginx/conf.d:rw
+  #     - /html/build:/html/build:ro
+  #     - /home/build:/home/build:ro
+  #     - letsencrypt:/etc/letsencrypt
+  #   environment:
+  #     COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+  #     API_VERSION: ${API_VERSION}
+  #     DOMAIN_EXT: ${DOMAIN_EXT}
+  #     IMAGE_SERVER_DOMAIN: ${IMAGE_SERVER_DOMAIN}
+  #     IMAGE_SERVER_SIGN_URLS_KEY: ${IMAGE_SERVER_SIGN_URLS_KEY}
+  #     IMAGE_SERVER_S3_BUCKET_DOMAIN: ${IMAGE_SERVER_S3_BUCKET_DOMAIN}
+  #     IMAGE_SERVER_S3_ACCESS_KEY: ${IMAGE_SERVER_S3_ACCESS_KEY}
+  #     DOMAIN: ${DOMAIN}
+  #     DOMAINS: ${DOMAINS}
+  #     NGINX_SSL_EMAIL: ${NGINX_SSL_EMAIL}
+  #   networks:
+  #     - ${NETWORK_MAIN_NAME}
+
+  # minio: local stand-in for Cloudflare R2 (upload-service's S3-compatible
+  # storage in production) — same S3 API, so @transport/core/s3 doesn't
+  # need a second implementation. ::::::::::::::::::::::::::::::::::::::::
+  minio:
+    container_name: minio
+    image: minio/minio
+    # Published to the host (not just `expose`), unlike every other
+    # backend service here: presigned URLs upload-service hands out are
+    # meant to be used directly by whatever holds them (a browser, curl,
+    # this repo's tester), not proxied back through upload-service itself
+    # — same as R2 in production, which is directly internet-reachable.
+    ports:
+      - "${MINIO_API_PORTS}:9000"
+      - "${MINIO_CONSOLE_PORTS}:9001"
+    healthcheck:
+      test: "exit 0"
+    volumes:
+      - minio_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${MINIO_RAM_MAX}
+        reservations:
+          memory: ${MINIO_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_S3_END_POINT_IN_DOCKER: ${MINIO_S3_END_POINT_IN_DOCKER}
+      MINIO_SERVER_URL: ${MINIO_S3_END_POINT_IN_DOCKER}
+    command: ${MINIO_DOCKER_COMMAND}
+
+  # minio setup: creates the bucket upload-service writes to, once — an
+  # actual S3/R2 bucket in production is provisioned by hand, not by this.
+  minio-setup:
+    container_name: minio-setup
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio ${MINIO_S3_END_POINT_IN_DOCKER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME};
+      exit 0;
+      "
+
+networks:
+  transport:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+    driver: local
+  cache:
+    driver: local
+  kafka_1_data:
+    driver: local
+  kafka_2_data:
+    driver: local
+  query-db-data:
+    driver: local
+  hasura-db-data:
+    driver: local
+  minio_data:
+    driver: local
+  upload-db-data:
+    driver: local
+  company-db-data:
+    driver: local
+  fleet-db-data:
+    driver: local

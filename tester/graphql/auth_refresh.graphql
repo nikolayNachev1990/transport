@@ -1,0 +1,9 @@
+mutation tester_auth_refresh($refresh_token: String) {
+  auth_refresh(refresh_token: $refresh_token) {
+    success
+    data {
+      access_token
+      refresh_token
+    }
+  }
+}

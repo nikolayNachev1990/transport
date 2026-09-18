@@ -1,0 +1,10 @@
+query tester_pending_users_by_company($companyId: uuid!) {
+  pending_users(where: { company_id: { _eq: $companyId } }) {
+    id
+    email
+    name
+    company_role
+    company_id
+    created_by
+  }
+}

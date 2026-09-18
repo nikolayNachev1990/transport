@@ -1,0 +1,34 @@
+table:
+  name: force_update_min_version
+  schema: public
+select_permissions:
+  - role: anonymous
+    permission:
+      columns:
+        - id
+        - android
+        - ios
+        - platform
+        - created_at
+        - updated_at
+      filter: {}
+  - role: user
+    permission:
+      columns:
+        - id
+        - android
+        - ios
+        - platform
+        - created_at
+        - updated_at
+      filter: {}
+  - role: moderator
+    permission:
+      columns:
+        - id
+        - android
+        - ios
+        - platform
+        - created_at
+        - updated_at
+      filter: {}

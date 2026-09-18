@@ -1,0 +1,10 @@
+# Without this file, npm falls back to .gitignore when packing this
+# package for a local `file:` install (e.g. auth-service's dependency on
+# `@transport/core`) — and .gitignore excludes dist/, which silently
+# strips the one directory package.json's "files" field says to ship.
+# An .npmignore, even one that doesn't mention dist, takes priority over
+# .gitignore and stops that from happening.
+node_modules
+src
+test
+*.tsbuildinfo

@@ -1,0 +1,29 @@
+{
+  "name": "company-service",
+  "version": "1.0.0",
+  "description": "Registry of companies and their users — sole source of truth for company_id/user_id, VIES VAT checks",
+  "main": "./dist/index.mjs",
+  "scripts": {
+    "dev": "nodemon",
+    "prod": "node ./dist/index.mjs",
+    "migrate": "node --no-warnings=ExperimentalWarning --experimental-strip-types --import ./dev-hooks.mjs ./src/migrate.mts",
+    "seed:plans": "node --no-warnings=ExperimentalWarning --experimental-strip-types --import ./dev-hooks.mjs ./src/seedPlans.mts"
+  },
+  "author": "Vladislav Radev",
+  "license": "ISC",
+  "dependencies": {
+    "@transport/core": "file:./core",
+    "axios": "1.20.0",
+    "express": "5.2.1",
+    "glob": "10.5.0",
+    "moment": "2.30.1",
+    "uuid": "14.0.2"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "22.20.2",
+    "@types/uuid": "10.0.0",
+    "nodemon": "3.1.14",
+    "typescript": "7.0.2"
+  }
+}

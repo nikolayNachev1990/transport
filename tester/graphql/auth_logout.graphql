@@ -1,0 +1,6 @@
+mutation tester_auth_logout {
+  auth_logout {
+    success
+    data
+  }
+}

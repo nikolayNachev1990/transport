@@ -1,0 +1,6 @@
+mutation tester_company_deactivate($companyId: String!) {
+  company_deactivate(companyId: $companyId) {
+    success
+    data
+  }
+}

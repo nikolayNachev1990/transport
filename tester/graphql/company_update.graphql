@@ -1,0 +1,6 @@
+mutation tester_company_update($companyId: String!, $address: String, $city: String, $subscription_status: String, $subscription_valid_until: String) {
+  company_update(companyId: $companyId, address: $address, city: $city, subscription_status: $subscription_status, subscription_valid_until: $subscription_valid_until) {
+    success
+    data
+  }
+}

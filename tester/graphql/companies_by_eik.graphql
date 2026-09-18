@@ -1,0 +1,17 @@
+query tester_companies_by_eik($eik: String!) {
+  companies(where: { eik: { _eq: $eik } }) {
+    id
+    name
+    eik
+    country
+    logo
+    address
+    city
+    vat_number
+    is_customer
+    is_tenant
+    is_active
+    subscription_status
+    subscription_valid_until
+  }
+}

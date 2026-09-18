@@ -1,0 +1,6 @@
+mutation tester_company_logo_update($companyId: String!, $upload_id: String!, $extension: String!) {
+  company_logo_update(companyId: $companyId, upload_id: $upload_id, extension: $extension) {
+    success
+    data
+  }
+}

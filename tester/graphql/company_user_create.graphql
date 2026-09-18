@@ -1,0 +1,6 @@
+mutation tester_company_user_create($email: String!, $name: String!, $company_role: String!) {
+  company_user_create(email: $email, name: $name, company_role: $company_role) {
+    success
+    data
+  }
+}

@@ -1,0 +1,6 @@
+mutation tester_company_user_link($email: String!) {
+  company_user_link(email: $email) {
+    success
+    data
+  }
+}

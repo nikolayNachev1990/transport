@@ -1,0 +1,17 @@
+{
+  "name": "tester",
+  "version": "1.0.0",
+  "description": "Integration tests against Hasura (and, where there's no action, services' own REST) for the transport monorepo",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "tester": "file:./packages/tester"
+  },
+  "devDependencies": {
+    "chai": "5.1.2",
+    "mocha": "10.8.2"
+  }
+}

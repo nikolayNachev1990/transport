@@ -1,0 +1,9 @@
+query tester_users($limit: Int) {
+  users(limit: $limit) {
+    id
+    name
+    email
+    role
+    active
+  }
+}

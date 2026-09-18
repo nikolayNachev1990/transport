@@ -1,0 +1,5 @@
+{
+  "watch": ["src"],
+  "ext": "mts",
+  "exec": "node --inspect --no-warnings=ExperimentalWarning --experimental-strip-types --import ./dev-hooks.mjs ./src/index.mts"
+}

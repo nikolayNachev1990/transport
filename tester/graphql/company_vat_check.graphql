@@ -1,0 +1,6 @@
+mutation tester_company_vat_check($companyId: String!) {
+  company_vat_check(companyId: $companyId) {
+    success
+    data
+  }
+}

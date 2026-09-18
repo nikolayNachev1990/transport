@@ -1,0 +1,6 @@
+mutation tester_company_invite_activate($userId: String!, $token: String!, $password: String!, $password_confirmation: String!) {
+  company_invite_activate(userId: $userId, token: $token, password: $password, password_confirmation: $password_confirmation) {
+    success
+    data
+  }
+}

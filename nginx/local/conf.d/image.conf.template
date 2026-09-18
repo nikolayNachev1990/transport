@@ -1,0 +1,303 @@
+proxy_cache_path /var/cache/images_cache levels=1:2 keys_zone=images_cache:100M max_size=1G inactive=40d;
+log_subrequest on;
+
+# IMAGES FRONT :::::::::::::::::::::::::::::::
+server {
+
+  listen 80;
+  server_name ${IMAGE_SERVER_DOMAIN};
+  server_tokens off;
+
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+  }
+
+  location / {
+    return 301 https://${IMAGE_SERVER_DOMAIN}$${ESC}request_uri;
+  }
+}
+
+server {
+
+	listen 443;
+	server_name ${IMAGE_SERVER_DOMAIN};
+
+ # ssl_certificate /etc/nginx/ssl/live/${IMAGE_SERVER_DOMAIN}/fullchain.pem;
+ #ssl_certificate_key /etc/nginx/ssl/live/${IMAGE_SERVER_DOMAIN}/privkey.pem;
+
+  error_log /var/log/nginx/error.front.log debug;
+
+  sendfile on;
+  # Lua script access key
+  set $${ESC}secret_key "${IMAGE_SERVER_SIGN_URLS_KEY}";
+  location ~ ^/resize/([\d-]+)x([\d-]+)/(.*) {
+		access_by_lua_block {
+        package.path = "/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/resty/?.lua;;"
+        local openssl_hmac = require("openssl.hmac")
+
+        local uri = ngx.var.uri
+        local timestamp = tonumber(ngx.var.arg_expires)
+        local secret = tostring(ngx.var.secret_key)
+        local signature = ngx.var.arg_st
+        local current_time = ngx.time()
+
+        if not timestamp or timestamp < current_time then
+            ngx.exit(ngx.HTTP_NOT_FOUND)
+        end
+
+        local message = uri .. "|" .. timestamp
+        local hmac = openssl_hmac.new(secret, "sha256")
+        local calculated_signature = hmac:final(message)
+
+        local safe_signature = ngx.encode_base64(calculated_signature):gsub("=", ""):gsub("+", "-"):gsub("/", "_")
+
+        if signature ~= safe_signature then
+            ngx.exit(ngx.HTTP_FORBIDDEN)
+        end
+    }
+
+		proxy_cache images_cache;
+		proxy_cache_key "$${ESC}scheme$${ESC}http_host$${ESC}uri";
+		proxy_cache_lock on;
+    proxy_cache_valid 30d;  # Cache valid thumbnails for 30 days.
+    # proxy_cache_valid any 15s;  # Everything else gets 15s.
+    # proxy_cache_use_stale error timeout invalid_header updating;
+
+    # add_header images-cache "$${ESC}upstream_cache_status";
+    # add_header images-cache-key "$scheme$http_host$uri";
+
+    proxy_http_version 1.1;
+    expires 1w;
+
+
+    proxy_pass http://127.0.0.1:9981/$${ESC}uri;
+
+		proxy_intercept_errors on;
+
+		error_page 404 /empty;
+		error_page 403 /empty;
+
+
+  }
+
+  location ~ ^/crop/([\d-]+)x([\d-]+)/(.*) {
+
+		access_by_lua_block {
+        package.path = "/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/resty/?.lua;;"
+        local openssl_hmac = require("openssl.hmac")
+
+        local uri = ngx.var.uri
+        local timestamp = tonumber(ngx.var.arg_expires)
+        local secret = tostring(ngx.var.secret_key)
+        local signature = ngx.var.arg_st
+        local current_time = ngx.time()
+
+        if not timestamp or timestamp < current_time then
+            ngx.exit(ngx.HTTP_NOT_FOUND)
+        end
+
+        local message = uri .. "|" .. timestamp
+        local hmac = openssl_hmac.new(secret, "sha256")
+        local calculated_signature = hmac:final(message)
+
+        local safe_signature = ngx.encode_base64(calculated_signature):gsub("=", ""):gsub("+", "-"):gsub("/", "_")
+
+        if signature ~= safe_signature then
+            ngx.exit(ngx.HTTP_FORBIDDEN)
+        end
+    }
+
+
+		proxy_cache images_cache;
+		proxy_cache_key "$${ESC}scheme$${ESC}http_host$${ESC}uri";
+		proxy_cache_lock on;
+    proxy_cache_valid 30d;  # Cache valid thumbnails for 30 days.
+    # proxy_cache_valid any 15s;  # Everything else gets 15s.
+    proxy_cache_use_stale error timeout invalid_header updating;
+
+    # add_header images-cache "$${ESC}upstream_cache_status";
+    # add_header images-cache-key "$scheme$http_host$uri";
+
+    proxy_http_version 1.1;
+    expires 1w;
+
+
+
+
+    proxy_pass http://127.0.0.1:9981/$${ESC}uri;
+
+		proxy_intercept_errors on;
+
+		error_page 404 /empty;
+		error_page 403 /empty;
+
+  }
+
+
+
+	location = /empty {
+		empty_gif;
+	}
+
+
+
+}
+
+# IMAGES FRONT :::::::::::::::::::::::::::::::
+
+
+
+# IMAGES CROP/RESIZE :::::::::::::::::::::::::::::::
+server {
+
+  listen 9981;
+  server_name 127.0.0.1;
+
+  error_log /var/log/nginx/error.crop.resize.log error;
+
+  sendfile on;
+
+	image_filter_jpeg_quality 85; # Adjust to your preferences.
+  image_filter_buffer 20M;
+  image_filter_interlace on;
+
+
+	location ~ ^/resize/([\d-]+)x([\d-]+)/(.*) {
+
+    image_filter resize $${ESC}1 $${ESC}2;
+
+    proxy_pass http://127.0.0.1:9982/$${ESC}uri;
+
+		proxy_intercept_errors on;
+
+		error_page 404 /empty;
+		error_page 403 /empty;
+
+  }
+
+	location ~ ^/crop/([\d-]+)x([\d-]+)/(.*) {
+
+    image_filter crop $${ESC}1 $${ESC}2;
+
+    proxy_pass http://127.0.0.1:9982/$${ESC}uri;
+
+		proxy_intercept_errors on;
+
+		error_page 404 /empty;
+		error_page 403 /empty;
+
+  }
+
+	location = /empty {
+		empty_gif;
+	}
+
+}
+# IMAGES CROP/RESIZE :::::::::::::::::::::::::::::::
+
+
+# IMAGES S3 DOWNLOAD AND CACHE :::::::::::::::::::::::::::::::
+server {
+
+  listen 9982;
+  server_name 127.0.0.1;
+
+  set $${ESC}backend ${IMAGE_SERVER_S3_BUCKET_DOMAIN};
+
+  error_log /var/log/nginx/error.crop.s3download.log error;
+
+  # Use Google for DNS.
+  # resolver 8.8.8.8;
+  # resolver_timeout 5s;
+
+  # Docker internal resolver
+  resolver 127.0.0.11;
+  resolver_timeout 30s;
+
+  proxy_buffering off;
+  proxy_http_version 1.1;
+  proxy_pass_request_body off; # Not needed by AWS.
+  proxy_pass_request_headers off;
+
+  # Clean up the headers going to and from S3.
+  proxy_hide_header "x-amz-id-2";
+  proxy_hide_header "x-amz-request-id";
+  proxy_hide_header "x-amz-storage-class";
+  proxy_hide_header "Set-Cookie";
+  proxy_ignore_headers "Set-Cookie";
+  proxy_set_header Host $${ESC}backend;
+  proxy_connect_timeout   60;
+  proxy_send_timeout      60;
+  proxy_read_timeout      60;
+  proxy_method GET;
+
+
+ location ~ ^/resize/([\d-]+)x([\d-]+)/(.*) {
+
+    set $${ESC}image_path '$${ESC}3';
+
+
+		proxy_set_header User-Agent '${IMAGE_SERVER_S3_ACCESS_KEY}';
+
+		proxy_intercept_errors on;
+
+    # cache ---------------------------------
+		proxy_cache images_cache;
+		proxy_cache_key image_path;
+		proxy_cache_lock on;
+    proxy_cache_valid 30d;  # Cache valid thumbnails for 30 days.
+    # proxy_cache_valid any 15s;  # Everything else gets 15s.
+    proxy_cache_use_stale error timeout invalid_header updating;
+
+    # add_header images-cache "$${ESC}upstream_cache_status";
+    # add_header images-cache-key "$scheme$http_host$uri";
+
+    proxy_http_version 1.1;
+    expires 1w;
+    # cache ---------------------------------
+
+		proxy_pass https://$${ESC}backend/$${ESC}image_path;
+		error_page 404 /empty;
+		error_page 403 /empty;
+  }
+
+
+	location ~ ^/crop/([\d-]+)x([\d-]+)/(.*) {
+
+    set $${ESC}image_path '$${ESC}3';
+
+		proxy_set_header User-Agent '${IMAGE_SERVER_S3_ACCESS_KEY}';
+
+		proxy_intercept_errors on;
+
+
+    # cache ---------------------------------
+		proxy_cache images_cache;
+		proxy_cache_key image_path;
+		proxy_cache_lock on;
+    proxy_cache_valid 30d;  # Cache valid thumbnails for 30 days.
+    # proxy_cache_valid any 15s;  # Everything else gets 15s.
+    proxy_cache_use_stale error timeout invalid_header updating;
+
+    # add_header images-cache "$${ESC}upstream_cache_status";
+    # add_header images-cache-key "$scheme$http_host$uri";
+
+    proxy_http_version 1.1;
+    expires 1w;
+    # cache ---------------------------------
+
+		proxy_pass https://$${ESC}backend/$${ESC}image_path;
+
+		error_page 404 /empty;
+		error_page 403 /empty;
+  }
+
+
+
+
+	location = /empty {
+		empty_gif;
+	}
+
+}
+# IMAGES S3 DOWNLOAD AND CACHE :::::::::::::::::::::::::::::::

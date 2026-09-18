@@ -1,0 +1,9 @@
+mutation tester_auth_login($email: String!, $password: String!, $sms_code: String) {
+  auth_login(email: $email, password: $password, sms_code: $sms_code) {
+    success
+    data {
+      access_token
+      refresh_token
+    }
+  }
+}

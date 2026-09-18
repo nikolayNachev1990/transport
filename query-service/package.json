@@ -1,0 +1,22 @@
+{
+  "name": "query-service",
+  "version": "1.0.0",
+  "description": "Read-side service: local copies of data synced from other services via Kafka, queried directly (no cross-service joins at request time)",
+  "main": "./dist/index.mjs",
+  "scripts": {
+    "dev": "nodemon",
+    "prod": "node ./dist/index.mjs",
+    "migrate": "node --no-warnings=ExperimentalWarning --experimental-strip-types --import ./dev-hooks.mjs ./src/migrate.mts"
+  },
+  "author": "Vladislav Radev",
+  "license": "ISC",
+  "dependencies": {
+    "@transport/core": "file:./core",
+    "glob": "10.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "nodemon": "3.1.14",
+    "typescript": "7.0.2"
+  }
+}

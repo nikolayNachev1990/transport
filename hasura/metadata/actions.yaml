@@ -1,0 +1,1133 @@
+actions:
+  - name: admin_user_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/role
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+    comment: Admin-only role change for a target user (auth-service PATCH /user/update/role)
+
+  - name: admin_user_profile_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/admin/user/update
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+    comment: Admin-only update of another user's profile fields (checkAuth + isAdmin on the route) — no equivalent in the old action set, added for the current auth-service admin endpoint
+
+  - name: admin_user_delete
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/admin/user/delete
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+    comment: Admin-only delete of a target user — no equivalent in the old action set
+
+  - name: auth_activate
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/activate/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.userId}}/{{$body.input.token}}'
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_activate
+
+  - name: auth_activation_email_resend
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/activationcode/resend
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_activation_email_resend
+
+  - name: auth_device_token_accept
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/device_token/accept
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_device_token_accept
+
+  - name: device_token_delete_all
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/device_token/delete_all
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: GET
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: >-
+      No equivalent in the old action set. NOTE: the current route
+      (deviceTokens/rest/deleteTokens.mts) has no checkAuth middleware in
+      code — this permission block is the only access restriction unless
+      that's fixed at the route level too.
+
+  - name: auth_email_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/email/update/confirm/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.token}}'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+      - role: anonymous
+    comment: auth_email_update
+
+  - name: auth_geoip
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/geoip/lookup
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: anonymous
+      - role: user
+    comment: auth_geoip
+
+  - name: auth_get_signup_code
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/get/signup/code/dev
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+    comment: >-
+      Dev-only debug endpoint — the route itself only works when
+      appConfig.isDevelopment is true and additionally checks
+      req.hasuraUser.role === "admin"; this permission block mirrors that.
+
+  - name: auth_login
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/login
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      # No body transform needed — Hasura's default action webhook payload
+      # is already `{"input": {...fields}}`, which is exactly what
+      # core's validateBody middleware reads (req.body?.input ?? req.body).
+      # An explicit Kriti body transform here (as the old reference did)
+      # broke on the optional sms_code field when omitted — dropped rather
+      # than patched, since it was redundant to begin with.
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_login
+
+  - name: auth_login_cookie
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/login/cookie
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      # Same reasoning as auth_login above — default action payload
+      # passthrough already matches what the route expects.
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_login_cookie
+
+  - name: auth_logout
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/logout
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: >-
+      Route is gated by passport.authenticate("bearer") in code, not
+      checkAuth — same effect (requires a valid bearer token).
+
+  - name: auth_me
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/me
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_me
+
+  - name: auth_mobile_login
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/mobile/login
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_mobile_login
+
+  - name: auth_mobile_password_reset
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/mobile/password/reset
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_mobile_password_reset
+
+  - name: auth_mobile_password_reset_confirmation
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/mobile/password/reset/confirm
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_mobile_password_reset_confirmation
+
+  - name: auth_mobile_signup
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/mobile/signup
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_mobile_signup
+
+  - name: auth_mobile_signup_confirm
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/mobile/signup/confirm
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_mobile_signup_confirm
+
+  - name: auth_notifications_last_seen_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/notifications_last_seen
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_notifications_last_seen_update
+
+  - name: auth_password_confirmation
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/password/reset/confirm/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.token}}'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: anonymous
+      - role: user
+    comment: auth_password_confirmation
+
+  - name: auth_password_reset
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/password/reset
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_password_reset
+
+  - name: auth_password_reset_validate
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/password/reset/validate/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.token}}'
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_password_reset_validate
+
+  - name: auth_qrcode_generate
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/qrcode/generate
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: anonymous
+      - role: user
+    comment: auth_qrcode_generate
+
+  - name: auth_qrcode_scan
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/qrcode/scan/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.qrkey}}'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_qrcode_scan
+
+  - name: auth_refresh
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/refresh
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: anonymous
+      - role: user
+    comment: auth_refresh
+
+  - name: auth_signup
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/signup
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: auth_signup
+
+  - name: auth_user_avatar_remove
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/remove/avatar
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_avatar_remove
+
+  - name: auth_user_avatar_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/avatar
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_avatar_update
+
+  - name: auth_user_block
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/block
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_block
+
+  - name: auth_user_delete
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/delete
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_delete
+
+  - name: auth_user_email_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/email
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_email_update
+
+  - name: auth_user_language_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/language
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_language_update
+
+  - name: auth_user_last_seen_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/last_seen
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_last_seen_update
+
+  - name: auth_user_mobile_number_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/mobile_number
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_mobile_number_update
+
+  - name: auth_user_notification_snooze
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/notifications/snooze
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_notification_snooze
+
+  - name: auth_user_notification_unsnooze
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/notifications/unsnooze
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_notification_unsnooze
+
+  - name: auth_user_profile_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/profile
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: >-
+      Self-service profile update (name only). Distinct from
+      admin_user_profile_update, which targets another user and is
+      admin-only.
+
+  - name: auth_user_twofa_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/user/update/twofa
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_twofa_update
+
+  - name: auth_user_unblock
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/unblock
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: auth_user_unblock
+
+  - name: min_version_update
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/update/version
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: moderator
+    comment: >-
+      NOTE: the route itself (forceUpdate/rest/updateVersion.mts) has no
+      auth middleware in code — this Hasura permission block is currently
+      the only access restriction for traffic going through the action.
+
+  - name: search_users_reindex
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/users/search/reindex
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+    comment: Route is gated by checkAuth + isAdmin
+
+  - name: upload_create
+    definition:
+      kind: synchronous
+      handler: http://upload-service/api/upload/create
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: upload_create
+
+  - name: upload_complete
+    definition:
+      kind: synchronous
+      handler: http://upload-service/api/upload/complete/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.uploadId}}'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: upload_complete
+
+  - name: upload_get_url
+    definition:
+      kind: synchronous
+      handler: http://upload-service/api/upload/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.uploadId}}/url'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: upload_get_url
+
+  - name: company_create
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: company_create
+
+  - name: company_update
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: owner
+    comment: company_update
+
+  - name: company_deactivate
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}/deactivate'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+    comment: company_deactivate
+
+  - name: company_vat_check
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}/vat-check'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+    comment: company_vat_check
+
+  - name: company_user_create
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/company/users
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+    comment: company_user_create
+
+  - name: company_user_link
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/members/link
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+    comment: company_user_link
+
+  - name: company_user_role_update
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/members/role
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+    comment: company_user_role_update
+
+  - name: owner_user_delete
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/members/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.userId}}'
+        version: 2
+    permissions:
+      - role: owner
+    comment: owner_user_delete
+
+  - name: company_invite_activate
+    definition:
+      kind: synchronous
+      handler: http://auth-service/api/company-invite/activate/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.userId}}/{{$body.input.token}}'
+        version: 2
+    permissions:
+      - role: anonymous
+    comment: company_invite_activate
+
+  - name: company_logo_update
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}/logo'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+    comment: company_logo_update
+
+  - name: company_logo_remove
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}/logo'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+    comment: company_logo_remove
+
+  - name: company_logo_url
+    definition:
+      kind: synchronous
+      handler: http://company-service/api/companies/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.companyId}}/logo/url'
+        version: 2
+    permissions:
+      - role: admin
+      - role: moderator
+      - role: user
+    comment: company_logo_url

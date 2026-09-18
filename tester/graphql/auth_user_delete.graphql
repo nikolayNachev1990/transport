@@ -1,0 +1,6 @@
+mutation tester_auth_user_delete {
+  auth_user_delete {
+    success
+    data
+  }
+}

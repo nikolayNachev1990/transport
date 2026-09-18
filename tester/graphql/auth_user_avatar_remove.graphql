@@ -1,0 +1,6 @@
+mutation tester_auth_user_avatar_remove {
+  auth_user_avatar_remove {
+    success
+    data
+  }
+}

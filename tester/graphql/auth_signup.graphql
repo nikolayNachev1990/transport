@@ -1,0 +1,16 @@
+mutation tester_auth_signup(
+  $name: String!
+  $email: String!
+  $password: String!
+  $password_confirmation: String!
+) {
+  auth_signup(
+    name: $name
+    email: $email
+    password: $password
+    password_confirmation: $password_confirmation
+  ) {
+    success
+    data
+  }
+}

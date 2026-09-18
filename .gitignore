@@ -1,10 +1,21 @@
 node_modules/
 dist/
-.env
+tmp/
 *.log
-coverage/
+npm-debug.log*
+
+# local runtime config, not tracked
+.env
+.env.*
+!.env.example
+
+# host-only convenience symlinks (each service points core -> ../core for
+# local npm/tsc; Docker builds copy the real core/ in via COPY core ./core)
+auth-service/core
+query-service/core
+core-service/core
+upload-service/core
+company-service/core
+fleet-service/core
+
 .DS_Store
-.pnpm-store/
-__pycache__/
-*.pyc
-.venv/

@@ -1,0 +1,6 @@
+query tester_auth_me {
+  auth_me {
+    success
+    data
+  }
+}

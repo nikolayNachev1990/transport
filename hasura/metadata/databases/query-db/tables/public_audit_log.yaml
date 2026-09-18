@@ -1,0 +1,80 @@
+table:
+  name: audit_log
+  schema: public
+select_permissions:
+  - role: moderator
+    permission:
+      columns:
+        - event_id
+        - actor_user_id
+        - company_id
+        - action
+        - target_type
+        - target_id
+        - at
+      filter: {}
+      limit: 1000
+      allow_aggregations: true
+  # "четене само по X-Hasura-Company-Id" (spec rule 12) — any active
+  # member of the company can read its own audit trail, scoped the same
+  # way as members itself.
+  - role: owner
+    permission:
+      columns:
+        - event_id
+        - actor_user_id
+        - company_id
+        - action
+        - target_type
+        - target_id
+        - at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - event_id
+        - actor_user_id
+        - company_id
+        - action
+        - target_type
+        - target_id
+        - at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: dispatcher
+    permission:
+      columns:
+        - event_id
+        - actor_user_id
+        - company_id
+        - action
+        - target_type
+        - target_id
+        - at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: accountant
+    permission:
+      columns:
+        - event_id
+        - actor_user_id
+        - company_id
+        - action
+        - target_type
+        - target_id
+        - at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

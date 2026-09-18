@@ -1,0 +1,6 @@
+mutation tester_company_user_role_update($userId: String!, $company_role: String!) {
+  company_user_role_update(userId: $userId, company_role: $company_role) {
+    success
+    data
+  }
+}

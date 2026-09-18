@@ -1,0 +1,6 @@
+mutation tester_upload_create($filename: String!, $mime_type: String!) {
+  upload_create(filename: $filename, mime_type: $mime_type) {
+    success
+    data
+  }
+}

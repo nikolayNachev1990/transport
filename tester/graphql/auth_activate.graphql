@@ -1,0 +1,6 @@
+mutation tester_auth_activate($userId: String!, $token: String!) {
+  auth_activate(userId: $userId, token: $token) {
+    success
+    data
+  }
+}

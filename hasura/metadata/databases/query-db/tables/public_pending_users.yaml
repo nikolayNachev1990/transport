@@ -1,0 +1,41 @@
+table:
+  name: pending_users
+  schema: public
+select_permissions:
+  - role: moderator
+    permission:
+      columns:
+        - id
+        - email
+        - name
+        - company_role
+        - company_id
+        - created_by
+        - created_at
+        - updated_at
+      filter: {}
+      limit: 1000
+      allow_aggregations: true
+  # Only the owner who created a pending invite can see it — spec rule 6:
+  # "Търсене по имейл за възстановяване: само сред created_by = caller".
+  # Other owners of the same company never see each other's outstanding
+  # invitations through this table.
+  - role: owner
+    permission:
+      columns:
+        - id
+        - email
+        - name
+        - company_role
+        - company_id
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        _and:
+          - company_id:
+              _eq: X-Hasura-Company-Id
+          - created_by:
+              _eq: X-Hasura-User-Id
+      limit: 1000
+      allow_aggregations: true

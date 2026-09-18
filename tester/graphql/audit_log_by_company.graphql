@@ -1,0 +1,10 @@
+query tester_audit_log_by_company($companyId: uuid!) {
+  audit_log(where: { company_id: { _eq: $companyId } }, order_by: { at: asc }) {
+    event_id
+    actor_user_id
+    company_id
+    action
+    target_type
+    target_id
+  }
+}

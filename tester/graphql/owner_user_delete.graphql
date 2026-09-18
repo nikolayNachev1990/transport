@@ -1,0 +1,6 @@
+mutation tester_owner_user_delete($userId: String!) {
+  owner_user_delete(userId: $userId) {
+    success
+    data
+  }
+}
