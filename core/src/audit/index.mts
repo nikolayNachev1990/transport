@@ -56,6 +56,9 @@ export const AUDIT_ACTIONS = [
   "fleet_damage_report.created",
   "fleet_damage_report.updated",
   "fleet_damage_report.file_attached",
+  "fleet_extraction.requested",
+  "fleet_extraction.confirmed",
+  "fleet_extraction.rejected",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

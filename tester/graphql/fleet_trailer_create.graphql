@@ -1,0 +1,20 @@
+mutation tester_fleet_trailer_create(
+  $kind: String!
+  $body_type: String!
+  $registration_number: String!
+  $registration_country: String!
+  $vin: String!
+  $make: String!
+) {
+  fleet_trailer_create(
+    kind: $kind
+    body_type: $body_type
+    registration_number: $registration_number
+    registration_country: $registration_country
+    vin: $vin
+    make: $make
+  ) {
+    success
+    data
+  }
+}

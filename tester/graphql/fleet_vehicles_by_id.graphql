@@ -1,0 +1,9 @@
+query tester_fleet_vehicles_by_id($id: uuid!) {
+  fleet_vehicles(where: { id: { _eq: $id } }) {
+    id
+    color
+    status
+    version
+    registration_number
+  }
+}

@@ -1,0 +1,18 @@
+mutation tester_fleet_vehicle_create(
+  $kind: String!
+  $registration_number: String!
+  $registration_country: String!
+  $vin: String!
+  $make: String!
+) {
+  fleet_vehicle_create(
+    kind: $kind
+    registration_number: $registration_number
+    registration_country: $registration_country
+    vin: $vin
+    make: $make
+  ) {
+    success
+    data
+  }
+}

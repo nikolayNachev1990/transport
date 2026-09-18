@@ -1,0 +1,6 @@
+mutation tester_fleet_extraction_request($file_id: String!, $vehicle_id: String) {
+  fleet_extraction_request(file_id: $file_id, vehicle_id: $vehicle_id) {
+    success
+    data
+  }
+}

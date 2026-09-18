@@ -1,0 +1,50 @@
+table:
+  name: fleet_extractions
+  schema: public
+select_permissions:
+  - role: owner
+    permission:
+      columns:
+        - id
+        - company_id
+        - file_id
+        - status
+        - detected_type_code
+        - matched_vehicle_id
+        - matched_trailer_id
+        - matched_driver_user_id
+        - readability_score
+        - error_code
+        - result_document_id
+        - result_vehicle_id
+        - result_trailer_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true
+  - role: transport_manager
+    permission:
+      columns:
+        - id
+        - company_id
+        - file_id
+        - status
+        - detected_type_code
+        - matched_vehicle_id
+        - matched_trailer_id
+        - matched_driver_user_id
+        - readability_score
+        - error_code
+        - result_document_id
+        - result_vehicle_id
+        - result_trailer_id
+        - version
+        - synced_at
+      filter:
+        company_id:
+          _eq: X-Hasura-Company-Id
+      limit: 1000
+      allow_aggregations: true

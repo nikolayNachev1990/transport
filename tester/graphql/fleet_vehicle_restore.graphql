@@ -1,0 +1,6 @@
+mutation tester_fleet_vehicle_restore($id: String!, $expected_version: Int!) {
+  fleet_vehicle_restore(id: $id, expected_version: $expected_version) {
+    success
+    data
+  }
+}

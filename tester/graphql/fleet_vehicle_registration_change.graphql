@@ -1,0 +1,16 @@
+mutation tester_fleet_vehicle_registration_change(
+  $id: String!
+  $expected_version: Int!
+  $registration_number: String!
+  $registration_country: String!
+) {
+  fleet_vehicle_registration_change(
+    id: $id
+    expected_version: $expected_version
+    registration_number: $registration_number
+    registration_country: $registration_country
+  ) {
+    success
+    data
+  }
+}

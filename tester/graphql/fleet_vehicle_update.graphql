@@ -1,0 +1,6 @@
+mutation tester_fleet_vehicle_update($id: String!, $expected_version: Int!, $color: String) {
+  fleet_vehicle_update(id: $id, expected_version: $expected_version, color: $color) {
+    success
+    data
+  }
+}

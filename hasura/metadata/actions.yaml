@@ -1131,3 +1131,1058 @@ actions:
       - role: moderator
       - role: user
     comment: company_logo_url
+
+  - name: fleet_vehicle_create
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_create (fleet-service)
+
+  - name: fleet_vehicle_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_update (fleet-service)
+
+  - name: fleet_vehicle_set_status
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/status'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_set_status (fleet-service)
+
+  - name: fleet_vehicle_delete
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_delete (fleet-service)
+
+  - name: fleet_vehicle_restore
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/restore'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_restore (fleet-service)
+
+  - name: fleet_vehicle_registration_change
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicles/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/registration'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_vehicle_registration_change (fleet-service)
+
+  - name: fleet_trailer_create
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_create (fleet-service)
+
+  - name: fleet_trailer_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_update (fleet-service)
+
+  - name: fleet_trailer_set_status
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/status'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_set_status (fleet-service)
+
+  - name: fleet_trailer_delete
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_delete (fleet-service)
+
+  - name: fleet_trailer_restore
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/restore'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_restore (fleet-service)
+
+  - name: fleet_trailer_registration_change
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/trailers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/registration'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_trailer_registration_change (fleet-service)
+
+  - name: fleet_combination_attach
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/combinations
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_combination_attach (fleet-service)
+
+  - name: fleet_combination_detach
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/combinations/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/detach'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_combination_detach (fleet-service)
+
+  - name: fleet_vehicle_driver_assign
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicle-drivers
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_vehicle_driver_assign (fleet-service)
+
+  - name: fleet_vehicle_driver_unassign
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicle-drivers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/unassign'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_vehicle_driver_unassign (fleet-service)
+
+  - name: fleet_vehicle_driver_set_primary
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/vehicle-drivers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/primary'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_vehicle_driver_set_primary (fleet-service)
+
+  - name: fleet_driver_profile_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/drivers/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.userId}}/profile'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_driver_profile_update (fleet-service)
+
+  - name: fleet_reveal_number
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/reveal-number
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_reveal_number (fleet-service)
+
+  - name: fleet_document_create
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_create (fleet-service)
+
+  - name: fleet_document_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_update (fleet-service)
+
+  - name: fleet_document_renew
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/renew'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_renew (fleet-service)
+
+  - name: fleet_document_delete
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_delete (fleet-service)
+
+  - name: fleet_document_restore
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/restore'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_restore (fleet-service)
+
+  - name: fleet_document_mute_reminders
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/mute-reminders'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_mute_reminders (fleet-service)
+
+  - name: fleet_document_file_attach
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/document-files
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_file_attach (fleet-service)
+
+  - name: fleet_document_file_detach
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/document-files/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/detach'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_file_detach (fleet-service)
+
+  - name: fleet_document_file_reorder
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/files/reorder'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_file_reorder (fleet-service)
+
+  - name: fleet_document_suggest_dates
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/documents/suggest-dates
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_document_suggest_dates (fleet-service)
+
+  - name: fleet_attachment_add
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/attachments
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_attachment_add (fleet-service)
+
+  - name: fleet_attachment_remove
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/attachments/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_attachment_remove (fleet-service)
+
+  - name: fleet_odometer_record
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/odometer-readings
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: driver
+    comment: fleet_odometer_record (fleet-service)
+
+  - name: fleet_odometer_correct
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/odometer-readings/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/correct'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+    comment: fleet_odometer_correct (fleet-service)
+
+  - name: fleet_maintenance_plan_upsert
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/maintenance-plans
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_maintenance_plan_upsert (fleet-service)
+
+  - name: fleet_maintenance_plan_deactivate
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/maintenance-plans/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/deactivate'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_maintenance_plan_deactivate (fleet-service)
+
+  - name: fleet_maintenance_record_create
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/maintenance-records
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_maintenance_record_create (fleet-service)
+
+  - name: fleet_maintenance_record_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/maintenance-records/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_maintenance_record_update (fleet-service)
+
+  - name: fleet_tyre_upsert
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/tyres
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_tyre_upsert (fleet-service)
+
+  - name: fleet_tyre_mount
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/tyres/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/mount'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_tyre_mount (fleet-service)
+
+  - name: fleet_tyre_unmount
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/tyre-mountings/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/unmount'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_tyre_unmount (fleet-service)
+
+  - name: fleet_equipment_upsert
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/equipment-items
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_equipment_upsert (fleet-service)
+
+  - name: fleet_equipment_delete
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/equipment-items/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: DELETE
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_equipment_delete (fleet-service)
+
+  - name: fleet_toll_device_upsert
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/toll-devices
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_toll_device_upsert (fleet-service)
+
+  - name: fleet_toll_device_assign
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/toll-devices/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/assign'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_toll_device_assign (fleet-service)
+
+  - name: fleet_toll_device_set_status
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/toll-devices/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/status'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+    comment: fleet_toll_device_set_status (fleet-service)
+
+  - name: fleet_tacho_download_record
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/tacho-downloads
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: driver
+    comment: fleet_tacho_download_record (fleet-service)
+
+  - name: fleet_damage_report_create
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/damage-reports
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: driver
+    comment: fleet_damage_report_create (fleet-service)
+
+  - name: fleet_damage_report_update
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/damage-reports/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: PATCH
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_damage_report_update (fleet-service)
+
+  - name: fleet_damage_report_attach_file
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/damage-reports/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/files'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: driver
+    comment: fleet_damage_report_attach_file (fleet-service)
+
+  - name: fleet_extraction_request
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/extractions
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: dispatcher
+      - role: accountant
+      - role: driver
+    comment: fleet_extraction_request (fleet-service)
+
+  - name: fleet_extraction_confirm
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/extractions/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/confirm'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_extraction_confirm (fleet-service)
+
+  - name: fleet_extraction_reject
+    definition:
+      kind: synchronous
+      handler: http://fleet-service/api/extractions/
+      forward_client_headers: true
+      headers:
+        - name: content-type
+          value: application/json
+      timeout: 60
+      request_transform:
+        method: POST
+        query_params: {}
+        template_engine: Kriti
+        url: '{{$base_url}}{{$body.input.id}}/reject'
+        version: 2
+    permissions:
+      - role: owner
+      - role: transport_manager
+      - role: accountant
+    comment: fleet_extraction_reject (fleet-service)
+

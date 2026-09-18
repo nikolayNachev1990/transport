@@ -1,0 +1,6 @@
+mutation tester_fleet_damage_report_create($vehicle_id: String, $kind: String!, $occurred_at: String!, $description: String!) {
+  fleet_damage_report_create(vehicle_id: $vehicle_id, kind: $kind, occurred_at: $occurred_at, description: $description) {
+    success
+    data
+  }
+}

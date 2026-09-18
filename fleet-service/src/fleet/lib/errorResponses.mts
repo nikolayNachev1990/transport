@@ -52,6 +52,8 @@ const ERROR_RESPONSES: Record<string, { status: number; message: string; api_err
   FLEET_FORBIDDEN: { status: 403, message: "ACCESS_DENIED", api_error: "You do not have rights to manage this document type." },
   FLEET_ODOMETER_INVALID: { status: 422, message: "VALIDATION_ERRORS", api_error: "Invalid odometer reading." },
   FLEET_DUPLICATE_TOLL_DEVICE_SERIAL: { status: 422, message: "VALIDATION_ERRORS", api_error: "A toll device with this provider/serial already exists." },
+  FLEET_EXTRACTION_NOT_PROPOSED: { status: 422, message: "VALIDATION_ERRORS", api_error: "This extraction has no proposal to confirm yet." },
+  FLEET_EXTRACTION_ALREADY_REQUESTED: { status: 422, message: "VALIDATION_ERRORS", api_error: "A recognition request is already active for this file." },
 };
 
 export function respondFleetError(res: Response, code: string, currentVersion?: number): void {

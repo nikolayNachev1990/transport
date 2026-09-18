@@ -1,0 +1,18 @@
+mutation tester_fleet_document_create(
+  $document_type_code: String!
+  $vehicle_id: String
+  $document_number: String
+  $country: String
+  $valid_to: String
+) {
+  fleet_document_create(
+    document_type_code: $document_type_code
+    vehicle_id: $vehicle_id
+    document_number: $document_number
+    country: $country
+    valid_to: $valid_to
+  ) {
+    success
+    data
+  }
+}

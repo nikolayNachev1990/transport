@@ -1,0 +1,6 @@
+mutation tester_fleet_combination_attach($vehicle_id: String!, $trailer_id: String!) {
+  fleet_combination_attach(vehicle_id: $vehicle_id, trailer_id: $trailer_id) {
+    success
+    data
+  }
+}

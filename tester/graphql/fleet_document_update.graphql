@@ -1,0 +1,6 @@
+mutation tester_fleet_document_update($id: String!, $expected_version: Int!, $notes: String) {
+  fleet_document_update(id: $id, expected_version: $expected_version, notes: $notes) {
+    success
+    data
+  }
+}

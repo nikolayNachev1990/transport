@@ -265,6 +265,11 @@ const consumers: Record<string, ConsumerCallback> = {
     const { upsertRow } = await import("../lib/fleetUpsert.mjs");
     await upsertRow(db, "fleet_damage_reports", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
   },
+  "fleet.extraction.changed": async (event) => {
+    const { db } = await import("../resources.mjs");
+    const { upsertRow } = await import("../lib/fleetUpsert.mjs");
+    await upsertRow(db, "fleet_extractions", ["id"], event.body as Record<string, unknown>, { synced_at: new Date() });
+  },
 };
 
 export default async function brokerConfig(): Promise<BrokerConfig> {

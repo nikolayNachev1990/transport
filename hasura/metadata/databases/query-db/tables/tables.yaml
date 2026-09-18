@@ -13,6 +13,7 @@
 - "!include public_fleet_documents.yaml"
 - "!include public_fleet_driver_profiles.yaml"
 - "!include public_fleet_equipment_items.yaml"
+- "!include public_fleet_extractions.yaml"
 - "!include public_fleet_maintenance_plans.yaml"
 - "!include public_fleet_maintenance_records.yaml"
 - "!include public_fleet_odometer_readings.yaml"

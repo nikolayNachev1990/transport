@@ -204,6 +204,7 @@ class DocumentService {
     role: string,
     input: Record<string, unknown>,
     source = "manual",
+    aiMeta?: { extractionId: string; confirmedBy: string },
   ): Promise<DocumentResult<{ id: string; version: number }>> {
     const subject = subjectOf(input);
     const editable = pickPresent(input, DOCUMENT_EDITABLE_FIELDS);
@@ -241,11 +242,22 @@ class DocumentService {
         source,
         created_by: actorUserId,
         updated_by: actorUserId,
+        ...(aiMeta ? { extraction_id: aiMeta.extractionId, confirmed_by: aiMeta.confirmedBy, confirmed_at: new Date() } : {}),
       };
       const [inserted] = await trx("documents").insert(sets).returning("*");
 
       const changes = buildDiff(null, inserted, [...DOCUMENT_EDITABLE_FIELDS, "document_type_code", "vehicle_id", "trailer_id", "driver_user_id"]) ?? {};
-      await insertRevision(trx, { companyId, entityType: "document", entityId: id, revision: 1, action: "create", changes, source, actorUserId });
+      await insertRevision(trx, {
+        companyId,
+        entityType: "document",
+        entityId: id,
+        revision: 1,
+        action: aiMeta ? "confirm" : "create",
+        changes,
+        source,
+        actorUserId,
+        extractionId: aiMeta?.extractionId ?? null,
+      });
 
       return { ok: true, data: inserted as DocumentRow } as const;
     });

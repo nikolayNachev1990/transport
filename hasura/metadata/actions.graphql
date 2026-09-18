@@ -429,3 +429,847 @@ type Mutation {
     companyId: String!
   ): Output
 }
+
+type Mutation {
+  fleet_vehicle_create(
+    kind: String!,
+    internal_code: String,
+    registration_number: String!,
+    registration_country: String!,
+    registration_certificate_number: String,
+    registration_holder_name: String,
+    first_registration_date: String,
+    current_registration_date: String,
+    vin: String!,
+    make: String!,
+    type_variant_version: String,
+    model: String,
+    type_approval_number: String,
+    vehicle_category: String,
+    manufacture_year: Int,
+    color: String,
+    operation_scope: String,
+    engine_number: String,
+    engine_capacity_cc: Int,
+    engine_power_kw: Int,
+    fuel_type: String,
+    euro_class: String,
+    fuel_tank_l: Int,
+    adblue_tank_l: Int,
+    battery_capacity_kwh: Float,
+    max_permissible_mass_kg: Int,
+    permissible_mass_in_service_kg: Int,
+    gross_combination_mass_kg: Int,
+    kerb_mass_kg: Int,
+    payload_kg: Int,
+    max_braked_trailer_mass_kg: Int,
+    max_unbraked_trailer_mass_kg: Int,
+    max_axle_load_kg: Int,
+    axles: Int,
+    axle_configuration: String,
+    length_mm: Int,
+    width_mm: Int,
+    height_mm: Int,
+    wheelbase_mm: Int,
+    fifth_wheel_height_mm: Int,
+    seats: Int,
+    sleeper_cab: Boolean,
+    body_type: String,
+    cargo_length_mm: Int,
+    cargo_width_mm: Int,
+    cargo_height_mm: Int,
+    cargo_volume_m3: Float,
+    pallet_places: Int,
+    tail_lift: Boolean,
+    tail_lift_capacity_kg: Int,
+    crane: Boolean,
+    adr_equipped: Boolean,
+    adr_vehicle_type: String,
+    tunnel_restriction_code: String,
+    tachograph_type: String,
+    tachograph_make: String,
+    tachograph_serial: String,
+    speed_limiter_kmh: Int,
+    telematics_provider: String,
+    telematics_device_id: String,
+    tyre_size_front: String,
+    tyre_size_rear: String,
+    ownership_type: String,
+    lessor_name: String,
+    lease_contract_number: String,
+    lease_start_date: String,
+    lease_end_date: String,
+    subcontractor_company_id: String,
+    purchase_date: String,
+    in_service_date: String,
+    sale_date: String,
+    deregistration_date: String,
+    odometer_km: Int,
+    odometer_at: String,
+    engine_hours: Int,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_update(
+    id: String!,
+    expected_version: Int!,
+    kind: String,
+    internal_code: String,
+    registration_certificate_number: String,
+    registration_holder_name: String,
+    first_registration_date: String,
+    current_registration_date: String,
+    vin: String,
+    make: String,
+    type_variant_version: String,
+    model: String,
+    type_approval_number: String,
+    vehicle_category: String,
+    manufacture_year: Int,
+    color: String,
+    operation_scope: String,
+    engine_number: String,
+    engine_capacity_cc: Int,
+    engine_power_kw: Int,
+    fuel_type: String,
+    euro_class: String,
+    fuel_tank_l: Int,
+    adblue_tank_l: Int,
+    battery_capacity_kwh: Float,
+    max_permissible_mass_kg: Int,
+    permissible_mass_in_service_kg: Int,
+    gross_combination_mass_kg: Int,
+    kerb_mass_kg: Int,
+    payload_kg: Int,
+    max_braked_trailer_mass_kg: Int,
+    max_unbraked_trailer_mass_kg: Int,
+    max_axle_load_kg: Int,
+    axles: Int,
+    axle_configuration: String,
+    length_mm: Int,
+    width_mm: Int,
+    height_mm: Int,
+    wheelbase_mm: Int,
+    fifth_wheel_height_mm: Int,
+    seats: Int,
+    sleeper_cab: Boolean,
+    body_type: String,
+    cargo_length_mm: Int,
+    cargo_width_mm: Int,
+    cargo_height_mm: Int,
+    cargo_volume_m3: Float,
+    pallet_places: Int,
+    tail_lift: Boolean,
+    tail_lift_capacity_kg: Int,
+    crane: Boolean,
+    adr_equipped: Boolean,
+    adr_vehicle_type: String,
+    tunnel_restriction_code: String,
+    tachograph_type: String,
+    tachograph_make: String,
+    tachograph_serial: String,
+    speed_limiter_kmh: Int,
+    telematics_provider: String,
+    telematics_device_id: String,
+    tyre_size_front: String,
+    tyre_size_rear: String,
+    ownership_type: String,
+    lessor_name: String,
+    lease_contract_number: String,
+    lease_start_date: String,
+    lease_end_date: String,
+    subcontractor_company_id: String,
+    purchase_date: String,
+    in_service_date: String,
+    sale_date: String,
+    deregistration_date: String,
+    odometer_km: Int,
+    odometer_at: String,
+    engine_hours: Int,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_set_status(
+    id: String!,
+    expected_version: Int!,
+    status: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_delete(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_restore(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_registration_change(
+    id: String!,
+    expected_version: Int!,
+    registration_number: String!,
+    registration_country: String!,
+    certificate_number: String
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_create(
+    kind: String!,
+    internal_code: String,
+    registration_number: String!,
+    registration_country: String!,
+    registration_certificate_number: String,
+    registration_holder_name: String,
+    first_registration_date: String,
+    current_registration_date: String,
+    vin: String!,
+    make: String!,
+    type_variant_version: String,
+    model: String,
+    type_approval_number: String,
+    vehicle_category: String,
+    manufacture_year: Int,
+    color: String,
+    body_type: String!,
+    body_variant: String,
+    sliding_roof: Boolean,
+    coil_well: Boolean,
+    side_boards: Boolean,
+    xl_certified: Boolean,
+    pallet_places: Int,
+    internal_length_mm: Int,
+    internal_width_mm: Int,
+    internal_height_mm: Int,
+    cargo_volume_m3: Float,
+    tail_lift: Boolean,
+    tail_lift_capacity_kg: Int,
+    reefer_unit_make: String,
+    reefer_unit_model: String,
+    reefer_unit_serial: String,
+    reefer_unit_hours: Int,
+    temp_min_c: Float,
+    temp_max_c: Float,
+    multi_temp: Boolean,
+    compartments: Int,
+    temperature_recorder: Boolean,
+    tank_capacity_l: Int,
+    tank_compartments: Int,
+    tank_code: String,
+    tank_material: String,
+    food_grade: Boolean,
+    max_permissible_mass_kg: Int,
+    permissible_mass_in_service_kg: Int,
+    kerb_mass_kg: Int,
+    payload_kg: Int,
+    max_axle_load_kg: Int,
+    kingpin_load_kg: Int,
+    axles: Int,
+    lift_axle: Boolean,
+    steering_axle: Boolean,
+    length_mm: Int,
+    width_mm: Int,
+    height_mm: Int,
+    tyre_size: String,
+    adr_equipped: Boolean,
+    adr_vehicle_type: String,
+    tunnel_restriction_code: String,
+    ownership_type: String,
+    lessor_name: String,
+    lease_contract_number: String,
+    lease_start_date: String,
+    lease_end_date: String,
+    subcontractor_company_id: String,
+    purchase_date: String,
+    in_service_date: String,
+    sale_date: String,
+    deregistration_date: String,
+    telematics_provider: String,
+    telematics_device_id: String,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_update(
+    id: String!,
+    expected_version: Int!,
+    kind: String,
+    internal_code: String,
+    registration_certificate_number: String,
+    registration_holder_name: String,
+    first_registration_date: String,
+    current_registration_date: String,
+    vin: String,
+    make: String,
+    type_variant_version: String,
+    model: String,
+    type_approval_number: String,
+    vehicle_category: String,
+    manufacture_year: Int,
+    color: String,
+    body_type: String,
+    body_variant: String,
+    sliding_roof: Boolean,
+    coil_well: Boolean,
+    side_boards: Boolean,
+    xl_certified: Boolean,
+    pallet_places: Int,
+    internal_length_mm: Int,
+    internal_width_mm: Int,
+    internal_height_mm: Int,
+    cargo_volume_m3: Float,
+    tail_lift: Boolean,
+    tail_lift_capacity_kg: Int,
+    reefer_unit_make: String,
+    reefer_unit_model: String,
+    reefer_unit_serial: String,
+    reefer_unit_hours: Int,
+    temp_min_c: Float,
+    temp_max_c: Float,
+    multi_temp: Boolean,
+    compartments: Int,
+    temperature_recorder: Boolean,
+    tank_capacity_l: Int,
+    tank_compartments: Int,
+    tank_code: String,
+    tank_material: String,
+    food_grade: Boolean,
+    max_permissible_mass_kg: Int,
+    permissible_mass_in_service_kg: Int,
+    kerb_mass_kg: Int,
+    payload_kg: Int,
+    max_axle_load_kg: Int,
+    kingpin_load_kg: Int,
+    axles: Int,
+    lift_axle: Boolean,
+    steering_axle: Boolean,
+    length_mm: Int,
+    width_mm: Int,
+    height_mm: Int,
+    tyre_size: String,
+    adr_equipped: Boolean,
+    adr_vehicle_type: String,
+    tunnel_restriction_code: String,
+    ownership_type: String,
+    lessor_name: String,
+    lease_contract_number: String,
+    lease_start_date: String,
+    lease_end_date: String,
+    subcontractor_company_id: String,
+    purchase_date: String,
+    in_service_date: String,
+    sale_date: String,
+    deregistration_date: String,
+    telematics_provider: String,
+    telematics_device_id: String,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_set_status(
+    id: String!,
+    expected_version: Int!,
+    status: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_delete(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_restore(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_trailer_registration_change(
+    id: String!,
+    expected_version: Int!,
+    registration_number: String!,
+    registration_country: String!,
+    certificate_number: String
+  ): Output
+}
+
+type Mutation {
+  fleet_combination_attach(
+    vehicle_id: String!,
+    trailer_id: String!,
+    from: String
+  ): Output
+}
+
+type Mutation {
+  fleet_combination_detach(
+    id: String!,
+    expected_version: Int!,
+    to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_driver_assign(
+    vehicle_id: String!,
+    driver_user_id: String!,
+    role: String!,
+    from: String,
+    to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_driver_unassign(
+    id: String!,
+    expected_version: Int!,
+    to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_vehicle_driver_set_primary(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_driver_profile_update(
+    userId: String!,
+    expected_version: Int!,
+    birth_date: String,
+    birth_place: String,
+    nationality: String,
+    personal_number: String,
+    address_line: String,
+    city: String,
+    postal_code: String,
+    country: String,
+    employee_number: String,
+    employment_start_date: String,
+    employment_end_date: String,
+    emergency_contact_name: String,
+    emergency_contact_phone: String,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_reveal_number(
+    entity_type: String!,
+    entity_id: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_create(
+    document_type_code: String!,
+    vehicle_id: String,
+    trailer_id: String,
+    driver_user_id: String,
+    document_number: String,
+    series: String,
+    issuer_name: String,
+    issuer_country: String,
+    country: String,
+    issued_on: String,
+    valid_from: String,
+    valid_to: String,
+    valid_to_km: Int,
+    categories: [String],
+    insured_sum: Float,
+    insured_sum_currency: String,
+    deductible_amount: Float,
+    deductible_currency: String,
+    broker_name: String,
+    attributes: json,
+    remind_days: [Int],
+    reminders_muted: Boolean,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_document_update(
+    id: String!,
+    expected_version: Int!,
+    document_number: String,
+    series: String,
+    issuer_name: String,
+    issuer_country: String,
+    country: String,
+    issued_on: String,
+    valid_from: String,
+    valid_to: String,
+    valid_to_km: Int,
+    categories: [String],
+    insured_sum: Float,
+    insured_sum_currency: String,
+    deductible_amount: Float,
+    deductible_currency: String,
+    broker_name: String,
+    attributes: json,
+    remind_days: [Int],
+    reminders_muted: Boolean,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_document_renew(
+    id: String!,
+    document_number: String,
+    series: String,
+    issuer_name: String,
+    issuer_country: String,
+    country: String,
+    issued_on: String,
+    valid_from: String,
+    valid_to: String,
+    valid_to_km: Int,
+    categories: [String],
+    insured_sum: Float,
+    insured_sum_currency: String,
+    deductible_amount: Float,
+    deductible_currency: String,
+    broker_name: String,
+    attributes: json,
+    remind_days: [Int],
+    reminders_muted: Boolean,
+    notes: String
+  ): Output
+}
+
+type Mutation {
+  fleet_document_delete(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_restore(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_mute_reminders(
+    id: String!,
+    expected_version: Int!,
+    muted: Boolean!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_file_attach(
+    document_id: String!,
+    file_id: String!,
+    side: String
+  ): Output
+}
+
+type Mutation {
+  fleet_document_file_detach(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_file_reorder(
+    id: String!,
+    document_file_ids: [String]!
+  ): Output
+}
+
+type Mutation {
+  fleet_document_suggest_dates(
+    type_code: String!,
+    issued_on: String,
+    valid_from: String
+  ): Output
+}
+
+type Mutation {
+  fleet_attachment_add(
+    vehicle_id: String,
+    trailer_id: String,
+    driver_user_id: String,
+    file_id: String!,
+    label: String,
+    taken_at: String
+  ): Output
+}
+
+type Mutation {
+  fleet_attachment_remove(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_odometer_record(
+    vehicle_id: String!,
+    value_km: Int!,
+    read_at: String!,
+    origin: String!,
+    file_id: String
+  ): Output
+}
+
+type Mutation {
+  fleet_odometer_correct(
+    id: String!,
+    expected_version: Int!,
+    value_km: Int!,
+    reason: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_maintenance_plan_upsert(
+    id: String,
+    vehicle_id: String,
+    trailer_id: String,
+    task: String,
+    custom_label: String,
+    interval_km: Int,
+    interval_months: Int,
+    interval_hours: Int,
+    remind_km_before: Int,
+    remind_days: [Int],
+    is_active: Boolean,
+    expected_version: Int
+  ): Output
+}
+
+type Mutation {
+  fleet_maintenance_plan_deactivate(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_maintenance_record_create(
+    vehicle_id: String,
+    trailer_id: String,
+    plan_id: String,
+    kind: String!,
+    performed_on: String!,
+    odometer_km: Int,
+    engine_hours: Int,
+    workshop_name: String,
+    workshop_company_id: String,
+    description: String!,
+    work_order_number: String,
+    billing_expense_id: String,
+    downtime_from: String,
+    downtime_to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_maintenance_record_update(
+    id: String!,
+    expected_version: Int!,
+    kind: String,
+    performed_on: String,
+    odometer_km: Int,
+    engine_hours: Int,
+    workshop_name: String,
+    workshop_company_id: String,
+    description: String,
+    work_order_number: String,
+    billing_expense_id: String,
+    downtime_from: String,
+    downtime_to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_tyre_upsert(
+    id: String,
+    serial: String,
+    brand: String,
+    model: String,
+    size: String,
+    dot_code: String,
+    season: String,
+    axle_type: String,
+    expected_version: Int
+  ): Output
+}
+
+type Mutation {
+  fleet_tyre_mount(
+    id: String!,
+    vehicle_id: String,
+    trailer_id: String,
+    position: String!,
+    mounted_km: Int,
+    tread_mm_start: Float,
+    from: String
+  ): Output
+}
+
+type Mutation {
+  fleet_tyre_unmount(
+    id: String!,
+    expected_version: Int!,
+    removed_km: Int,
+    tread_mm_end: Float,
+    removal_reason: String,
+    to: String
+  ): Output
+}
+
+type Mutation {
+  fleet_equipment_upsert(
+    id: String,
+    vehicle_id: String,
+    trailer_id: String,
+    item_type: String,
+    quantity: Int,
+    serial: String,
+    valid_to: String,
+    notes: String,
+    expected_version: Int
+  ): Output
+}
+
+type Mutation {
+  fleet_equipment_delete(
+    id: String!,
+    expected_version: Int!
+  ): Output
+}
+
+type Mutation {
+  fleet_toll_device_upsert(
+    id: String,
+    provider: String,
+    countries: [String],
+    device_serial: String,
+    contract_number: String,
+    axle_class: Int,
+    euro_class_declared: String,
+    valid_to: String,
+    expected_version: Int
+  ): Output
+}
+
+type Mutation {
+  fleet_toll_device_assign(
+    id: String!,
+    expected_version: Int!,
+    vehicle_id: String
+  ): Output
+}
+
+type Mutation {
+  fleet_toll_device_set_status(
+    id: String!,
+    expected_version: Int!,
+    status: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_tacho_download_record(
+    vehicle_id: String,
+    driver_user_id: String,
+    downloaded_at: String!,
+    period_from: String,
+    period_to: String,
+    file_id: String,
+    origin: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_damage_report_create(
+    vehicle_id: String,
+    trailer_id: String,
+    driver_user_id: String,
+    kind: String!,
+    occurred_at: String!,
+    location_text: String,
+    lat: Float,
+    lng: Float,
+    description: String!,
+    third_party_involved: Boolean,
+    police_report_number: String,
+    european_accident_statement: Boolean
+  ): Output
+}
+
+type Mutation {
+  fleet_damage_report_update(
+    id: String!,
+    expected_version: Int!,
+    location_text: String,
+    description: String,
+    third_party_involved: Boolean,
+    police_report_number: String,
+    european_accident_statement: Boolean,
+    insurance_document_id: String,
+    claim_number: String,
+    status: String,
+    order_id: String
+  ): Output
+}
+
+type Mutation {
+  fleet_damage_report_attach_file(
+    id: String!,
+    file_id: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_extraction_request(
+    file_id: String!,
+    vehicle_id: String,
+    trailer_id: String,
+    driver_user_id: String,
+    type_code: String
+  ): Output
+}
+
+type Mutation {
+  fleet_extraction_confirm(
+    id: String!,
+    fields: json!,
+    target: String!
+  ): Output
+}
+
+type Mutation {
+  fleet_extraction_reject(
+    id: String!,
+    reason: String!
+  ): Output
+}
+

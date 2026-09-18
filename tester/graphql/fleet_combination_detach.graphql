@@ -1,0 +1,6 @@
+mutation tester_fleet_combination_detach($id: String!, $expected_version: Int!) {
+  fleet_combination_detach(id: $id, expected_version: $expected_version) {
+    success
+    data
+  }
+}

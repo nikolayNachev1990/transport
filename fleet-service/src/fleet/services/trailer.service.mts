@@ -79,6 +79,7 @@ class TrailerService {
     companyId: string,
     actorUserId: string,
     source = "manual",
+    aiMeta?: { extractionId: string; confirmedBy: string },
   ): Promise<TrailerResult<{ id: string; version: number }>> {
     const regNumber = normalizeRegistrationNumber(input.registration_number as string);
     if (regNumber === null) return { ok: false, code: "FLEET_INVALID_REGISTRATION_NUMBER" };
@@ -106,6 +107,7 @@ class TrailerService {
           source,
           created_by: actorUserId,
           updated_by: actorUserId,
+          ...(aiMeta ? { extraction_id: aiMeta.extractionId, confirmed_by: aiMeta.confirmedBy, confirmed_at: new Date() } : {}),
         };
         const [inserted] = await trx("trailers").insert(sets).returning("*");
 
@@ -126,10 +128,11 @@ class TrailerService {
           entityType: "trailer",
           entityId: id,
           revision: 1,
-          action: "create",
+          action: aiMeta ? "confirm" : "create",
           changes,
           source,
           actorUserId,
+          extractionId: aiMeta?.extractionId ?? null,
         });
 
         return { ok: true, data: inserted as TrailerRow } as const;

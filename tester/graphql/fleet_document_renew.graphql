@@ -1,0 +1,6 @@
+mutation tester_fleet_document_renew($id: String!, $document_number: String, $valid_to: String) {
+  fleet_document_renew(id: $id, document_number: $document_number, valid_to: $valid_to) {
+    success
+    data
+  }
+}

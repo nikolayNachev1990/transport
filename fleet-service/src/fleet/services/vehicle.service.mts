@@ -94,6 +94,11 @@ class VehicleService {
     companyId: string,
     actorUserId: string,
     source = "manual",
+    // Set only when this create is the result of confirming a recognition
+    // proposal (SPEC-fleet-service.md §13 step 4/6) — links the new row
+    // back to its extraction and logs a 'confirm' revision instead of
+    // 'create', matching that section's own wording.
+    aiMeta?: { extractionId: string; confirmedBy: string },
   ): Promise<VehicleResult<{ id: string; version: number }>> {
     const regNumber = normalizeRegistrationNumber(input.registration_number as string);
     if (regNumber === null) return { ok: false, code: "FLEET_INVALID_REGISTRATION_NUMBER" };
@@ -122,6 +127,7 @@ class VehicleService {
           source,
           created_by: actorUserId,
           updated_by: actorUserId,
+          ...(aiMeta ? { extraction_id: aiMeta.extractionId, confirmed_by: aiMeta.confirmedBy, confirmed_at: new Date() } : {}),
         };
         const [inserted] = await trx("vehicles").insert(sets).returning("*");
 
@@ -142,10 +148,11 @@ class VehicleService {
           entityType: "vehicle",
           entityId: id,
           revision: 1,
-          action: "create",
+          action: aiMeta ? "confirm" : "create",
           changes,
           source,
           actorUserId,
+          extractionId: aiMeta?.extractionId ?? null,
         });
 
         return { ok: true, data: inserted as VehicleRow } as const;

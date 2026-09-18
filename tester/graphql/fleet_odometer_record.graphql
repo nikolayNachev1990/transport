@@ -1,0 +1,6 @@
+mutation tester_fleet_odometer_record($vehicle_id: String!, $value_km: Int!, $read_at: String!, $origin: String!) {
+  fleet_odometer_record(vehicle_id: $vehicle_id, value_km: $value_km, read_at: $read_at, origin: $origin) {
+    success
+    data
+  }
+}
