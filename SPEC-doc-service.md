@@ -1,0 +1,442 @@
+# SPEC — doc-service
+
+Източник на истината за doc-service. Допълва SPEC-fleet-service.md §13 (договорът за
+разпознаване — вече дефиниран там от страната на fleet) и PROJECT-CONTEXT.md.
+Прозата е на български; кодът, имената, събитията, JSON схемите — на английски.
+
+Работно име: `doc-service`. Може да се вика и „file-service" — не притежава само AI
+извличането, а и достъпа до конкретния файл за целта (виж §7). Няма отделен `ai-service`:
+AI извикването е част от този сервиз (виж §0 — решено изрично, не отваряме въпроса пак).
+
+---
+
+## 0. РЕШЕНИ ВЪПРОСИ (за да не се преразглеждат)
+
+1. Схемите на `document_types` (вкл. `attributes_schema`) се вграждат директно в
+   `fleet.extraction.requested` — doc-service няма собствена връзка към fleet_db и не
+   чете document_types отникъде другаде. fleet е единственият собственик на този речник.
+2. AI ключът (`ANTHROPIC_API_KEY`) е env var в контейнера на doc-service — не идва от
+   Kafka, не идва от друг сервиз.
+3. Ниво-1 (локално/OCR) извличане се прави за **всички** типове документи, не само за
+   талона — целта е AI извикване само когато Ниво-1 реално не се справи, за да не се
+   плаща AI четене за всеки файл. Точният ред, в който се строят парсерите, е в §11.
+4. Няма отделен ai-service — цялото AI извикване живее в doc-service.
+5. **Сервизите не говорят помежду си през Hasura.** Hasura говори с тях (в двете посоки:
+   Action webhook навън, обикновени четения при нужда), но doc-service не отваря връзка
+   towards Hasura и никой не отваря връзка towards doc-service през Hasura — единствената
+   външна повърхност на doc-service е Kafka. Изключението е достъпът до самия файл
+   (двоични данни не се пращат през Kafka) — doc-service чете директно от S3/MinIO с
+   read-only credentials (§7); това не е връзка към друг сервиз, а към споделена
+   инфраструктура (аналогично на Kafka самия — всеки сервиз си държи собствена връзка
+   towards него, не минава през посредник).
+
+---
+
+## 1. ОБХВАТ
+
+doc-service:
+
+- Слуша `fleet.extraction.requested` (виж SPEC-fleet-service.md §13).
+- Взима байтовете на файла директно от S3/MinIO, по точния ключ, вграден в събитието
+  (§7 — read-only credentials, без хоп през upload-service).
+- Опитва Ниво-1 извличане: генерично OCR + класификатор на типа + парсер, специфичен
+  за типа (§4).
+- Ако Ниво-1 не даде достатъчна увереност (или типът просто няма парсер още) —
+  Ниво-2: AI извикване (Claude, vision или само текст) с prompt, генериран динамично от
+  вградените в събитието схеми (§5).
+- Публикува `doc.extraction.completed` или `doc.extraction.failed`.
+- Публикува `doc.ai_usage.recorded` при всяко реално AI извикване, за бъдещо
+  таксуване/лимити (§6) — doc-service не налага лимити сам, само отчита разхода.
+
+### Какво НЕ прави doc-service
+
+| Нещо | Къде е |
+|---|---|
+| Решава кой документ на кое превозно средство/шофьор принадлежи (subject matching) | fleet-service (§13 стъпка 3) |
+| Създава/подновява документ, камион, ремарке от резултата | fleet-service, само след ръчно потвърждение (§13 стъпка 4) |
+| Пази `document_types` речника | fleet-service |
+| Приема качването, пази метаданни, генерира preview/миниатюра | upload-service |
+| Налага AI лимит/квота по план | бъдещ billing-service (doc-service само отчита разхода) |
+| Пази собствена база данни | никъде — doc-service е stateless (§8) |
+
+---
+
+## 2. ENV (всички задължителни освен изрично маркираните, услугата пада при липса — правило 8)
+
+```
+KAFKA_BROKERS
+KAFKA_GROUP_ID                  # "doc-group" — фиксирано име, вече резервирано в Events/*.mjs
+S3_TYPE                         # "minio" локално / "s3" в production, както upload-service
+S3_ACCESS_KEY                   # read-only ключ, отделен от upload-service's (само GetObject)
+S3_SECRET_KEY
+S3_BUCKET                       # същия бъкет като upload-service
+S3_REGION
+S3_ENDPOINT_IN_DOCKER           # вътрешен docker network endpoint
+ANTHROPIC_API_KEY
+ANTHROPIC_MODEL                 # напр. "claude-opus-5" — фиксиран модел, не "latest"-alias
+AI_REQUEST_TIMEOUT_SECONDS      # default 30
+AI_MAX_RETRIES                  # default 2 (общо до 3 опита)
+OCR_LANGUAGES                   # default "bul+eng" — tesseract language pack кодове
+LOG_LEVEL                       # default "info"
+```
+
+---
+
+## 3. ПОТОК
+
+```
+1. fleet-service праща fleet.extraction.requested
+   { extraction_id, company_id, file_id, file_key, mime_type, hints, allowed_types[] }
+
+2. doc-service (консюмър "doc-group"):
+   a) GetObject(S3_BUCKET, file_key) директно от S3/MinIO с read-only credentials —
+      байтовете на файла, без мрежов хоп към друг сервиз.
+   b) PDF с повече от 1 страница → OCR на всяка страница, класификаторът избира
+      страницата с най-добро съвпадение срещу allowed_types; тя се ползва за остатъка
+      от пайплайна. Изображение → директно.
+   c) Ниво 1 (§4): generic OCR → класификация по allowed_types → ако има парсер за
+      разпознатия/подсказания (hints.type_code) тип → извличане на полета.
+   d) Оценка на увереността (§4.3): достатъчно ли е Ниво 1, за да пропуснем AI.
+      - достатъчно → engine="local", директно към стъпка (f)
+      - недостатъчно / няма парсер за типа → Ниво 2 (§5)
+   e) Ниво 2: AI извикване (Claude) с динамичен prompt от allowed_types. Ако Ниво 1
+      вече е извадило част от полетата с добра увереност — тези остават, AI попълва
+      само липсващото/несигурното (engine="hybrid"); ако Ниво 1 не е дало нищо
+      ползваемо — AI решава изцяло (engine="ai").
+   f) Нормализация на резултата към общия формат (§6.3) → публикува
+      doc.extraction.completed / doc.extraction.failed.
+   g) Ако е имало реално AI извикване в (e) → публикува doc.ai_usage.recorded.
+
+3. fleet-service (вече построено, Etap 8) поема оттук — matching, "proposed", ръчно
+   потвърждение. doc-service не участва повече в тази конкретна заявка.
+```
+
+---
+
+## 4. НИВО 1 — ЛОКАЛНО ИЗВЛИЧАНЕ
+
+### 4.1 Generic OCR
+
+Един общ стъпка преди всичко останало: tesseract (`OCR_LANGUAGES`) връща суров текст +
+bounding boxes по дума. Върху него работят класификаторът и повечето парсери. За
+типове с MRZ (машинно четима зона — виж 4.2) се ползва отделен MRZ парсер вместо
+свободен текст, много по-надежден (checksum-верифицируем формат по ICAO 9303).
+
+### 4.2 Класификация на типа
+
+Вход: `allowed_types[]` от събитието (само активните типове, филтрирани по subject_type
+от hints — вече изчислено от fleet-service, doc-service не преизчислява това).
+
+- Ако `hints.type_code` присъства и е сред `allowed_types` → пропускаме класификация,
+  директно към парсера на този тип (потребителят вече е казал какво е).
+- Иначе: за всеки код от `allowed_types` — проверка на разпознавателни маркери (ключови
+  фрази/шаблони в суровия OCR текст, виж таблицата в §4.4) срещу изтегления текст.
+  Печели типът с най-много съвпадения над праг; при равенство или под прага →
+  `detected_type_code = null`, отива директно на Ниво 2 без губене на време в грешен парсер.
+
+### 4.3 Праг на увереност — кога пропускаме AI
+
+Ниво 1 се смята за достатъчно, само ако **всички** са изпълнени:
+- типът е разпознат еднозначно (или е подсказан от `hints.type_code`),
+- типът си има написан парсер (§4.4/§11 — не всички имат от старта),
+- всички полета, маркирани `requires_number`/`has_country`/`has_expiry` за този тип
+  (по вградената в събитието схема) са извлечени и минават собствената си форматна
+  проверка (VIN/рег. номер/дата — същите нормализатори като fleet-service §5, копирани
+  на python страна, виж бележката в §9),
+- readability_score на страницата >= праг (конфигуруем константа в кода, не env —
+  вътрешна настройка на пайплайна, не операционна).
+
+Ако който и да е от тези провали — Ниво 2, с каквото Ниво 1 е успяло да извади (частично
+попълване, не изхвърляне).
+
+### 4.4 Стратегия по тип документ
+
+Пълният списък полета за всеки тип е в SPEC-fleet-service.md §4 — тук не се дублира,
+само стратегията за автоматично разпознаване. Легенда: **MRZ** = машинно четима зона
+(ICAO 9303, checksum-проверима, най-надеждна); **EU-код** = хармонизирана мрежа от
+кодове (A, B, C.1.1, D.1, D.2, E...) с фиксирана позиция; **етикет** = OCR текст +
+regex около познат надпис/етикет; **AI-only** = свободен текст, няма надежден локален
+подход, директно Ниво 2.
+
+**Превозно средство:**
+
+| code | Ниво-1 стратегия | маркери |
+|---|---|---|
+| registration_certificate | EU-код | "СВИДЕТЕЛСТВО ЗА РЕГИСТРАЦИЯ", кодове A/B/C.1.1/D.1/D.2/E/J |
+| technical_inspection | етикет | "ПРОТОКОЛ", "ГОДИШЕН ТЕХНИЧЕСКИ ПРЕГЛЕД", име на пункт |
+| mtpl | етикет | "ГРАЖДАНСКА ОТГОВОРНОСТ", "ЗЕЛЕНА КАРТА"/"GREEN CARD" |
+| casco | етикет | "КАСКО", "ПОЛИЦА №" |
+| cmr_insurance | етикет | "ОТГОВОРНОСТ НА ПРЕВОЗВАЧА", "CMR", "ФРАНШИЗ" |
+| tachograph_calibration | етикет | "ТАХОГРАФ", "КАЛИБРИРАНЕ", W/K фактор |
+| speed_limiter_certificate | етикет | "ОГРАНИЧИТЕЛ НА СКОРОСТ" |
+| adr_vehicle_certificate | етикет | "ADR", "ODOBRENIE", UN клас |
+| eu_community_licence_copy | етикет | "ОБЩНОСТЕН ЛИЦЕНЗ", "ЗАВЕРЕНО КОПИЕ №" |
+| cemt_permit | етикет | "CEMT"/"ЕКМТ" |
+| bilateral_permit | етикет | двустранно разрешително, страна двойка |
+| vignette | етикет | "ВИНЕТКА", период |
+| environmental_sticker | AI-only | различен формат по държава, ниска стойност за инвестиция |
+| lez_registration | AI-only | различен формат по град |
+| lifting_equipment_inspection | етикет | "ДТН", сериен номер на оборудване |
+| tail_lift_inspection | AI-only | рядък тип, пропуска се засега |
+| lease_contract | AI-only | свободен текст, договор |
+| rental_contract | AI-only | свободен текст, договор |
+| accident_insurance_occupants | етикет | "ЗАСТРАХОВКА НА ПЪТНИЦИ" |
+| tacho_vu_download | няма — псевдотип, не приема extraction заявки (виж бележка) |
+
+**Ремарке:** същите стратегии като аналозите им за превозно средство —
+`registration_certificate_trailer` (EU-код), `technical_inspection_trailer`/`mtpl_trailer`/
+`casco_trailer`/`adr_vehicle_certificate_trailer`/`tank_inspection`/`reefer_unit_service`
+(етикет), `atp_certificate` (етикет, "ATP"/"FRC"), `xl_certificate` (етикет),
+`lease_contract_trailer` (AI-only).
+
+**Шофьор:**
+
+| code | Ниво-1 стратегия | маркери |
+|---|---|---|
+| driving_licence | MRZ, ако присъства; иначе категорийна таблица (EU-код) | категории 1-9 таблица |
+| cpc_card | етикет | "КАРТА ЗА КВАЛИФИКАЦИЯ", "КОД 95" |
+| tachograph_card | етикет | "ТАХОГРАФСКА КАРТА", номер на карта |
+| medical_certificate | AI-only | свободен формат по лекарски център |
+| psychological_assessment | AI-only | свободен формат |
+| adr_driver_certificate | етикет | "ADR", класове |
+| id_card | MRZ | ICAO 9303 TD1 |
+| passport | MRZ | ICAO 9303 TD3 |
+| visa | MRZ | ICAO 9303 MRV |
+| residence_permit | MRZ, ако е карта; иначе AI-only | ICAO 9303 TD1 |
+| work_permit | AI-only | различен формат по държава |
+| driver_attestation | етикет | "ATTESTATION", EU 1072/2009 |
+| a1_certificate | етикет | "A1", "PORTABLE DOCUMENT A1" |
+| posting_declaration | AI-only | различен формат по държава |
+| employment_contract | AI-only | свободен текст |
+| tacho_card_download | няма — псевдотип, не приема extraction заявки |
+
+**Фирма:** `eu_community_licence`/`national_transport_licence`/`transport_manager_certificate`/
+`adr_safety_adviser_certificate` — етикет (номер + издател); `cargo_insurance`/
+`forwarding_liability_insurance` — етикет ("ЗАСТРАХОВКА НА ТОВАР"/"ОТГОВОРНОСТ НА СПЕДИТОРА").
+
+Псевдотиповете (`tacho_vu_download`, `tacho_card_download`) не са реални документи —
+попълват се от `tachograph_downloads`, не от файл. fleet-service вече не ги слага в
+`allowed_type_codes` за extraction (проверка при implementация — ако все пак дойдат,
+doc-service ги пропуска директно към `doc.extraction.failed{error_code: DOC_TYPE_NOT_EXTRACTABLE}`).
+
+---
+
+## 5. НИВО 2 — AI FALLBACK
+
+### 5.1 Кога
+
+- типът не е разпознат от класификатора,
+- разпознат е, но няма написан парсер още (виж §11 — не всички построени в първия етап),
+- разпознат е, има парсер, но праговете от §4.3 не са изпълнени изцяло (частично
+  Ниво-1 резултат се праща заедно с останалите полета за AI да допълни — `engine=hybrid`).
+
+### 5.2 Prompt
+
+Генерира се динамично от `allowed_types[]` (вградени в `fleet.extraction.requested`):
+за всеки код — `attributes_schema`, `requires_number`, `has_country`, `has_expiry`,
+`default_validity_months/days`. Моделът получава: списъка от възможни типове +
+схемите им + вече извлеченото от Ниво 1 (ако има) + инструкция да върне JSON по
+фиксиран изходен формат (§6.3), включващ и избора на `detected_type_code`.
+
+Извикването е structured (tool-use / принудителен JSON изход по схема), не свободен
+текст за парсене — грешен/неструктуриран отговор на модела е `DOC_AI_INVALID_RESPONSE`,
+retry (§5.4), не опит за regex парсене на свободния отговор.
+
+### 5.3 Вход: текст или снимка
+
+- OCR текстът е четим и типът е с познат layout → праща се само текст (по-евтино).
+- OCR текстът е оскъден/нечетим, или типът няма стандартен layout (снимки на печати,
+  ръкописен текст, повредени/размазани сканове) → праща се изображението (vision).
+- PDF с няколко страници → праща се само страницата, избрана от класификатора в §4.2
+  (не целия документ) — контрол на разхода.
+
+### 5.4 Грешки, retry, timeout
+
+`AI_MAX_RETRIES` опита с нарастващо изчакване; при timeout (`AI_REQUEST_TIMEOUT_SECONDS`)
+или изчерпани опити → `doc.extraction.failed{error_code: DOC_AI_UNAVAILABLE}`. Невалиден
+JSON отговор от модела (не по схемата) → един directen retry с по-стриктна инструкция,
+после `DOC_AI_INVALID_RESPONSE`. Нито един случай не блокира консюмацията на следващото
+Kafka съобщение — всяка заявка е независима.
+
+---
+
+## 6. СЪБИТИЯ
+
+### 6.1 Консумира
+
+`fleet.extraction.requested` — схемата се разширява спрямо текущата (`Events/
+fleet.extraction.requested.mjs`) с две неща:
+
+1. `allowed_type_codes: string[]` става `allowed_types`, масив от пълни обекти:
+
+```js
+allowed_types: [{
+  code, subject_type, category, applies_to_kinds, has_expiry, expiry_by_km,
+  default_validity_months, default_validity_days, requires_number, has_country,
+  multiple_active, required_when, attributes_schema, is_sensitive,
+}]
+```
+
+2. Нов field `file_key` — точният S3 обектен ключ (`fleet_db.files.storage_key`, виж §7)
+   — doc-service никога не изчислява ключа сам, само го чете от събитието.
+
+Промяната е във `fleet-service` (не е код на doc-service, но е част от договора, затова
+е описана тук изрично):
+- `ExtractionService.request` праща `types`-масива целия вместо да маха всичко освен `code`.
+- за `file_key` — `fleet_db.files` получава нова колона `storage_key`, попълвана от
+  новия консюмър за `upload.completed` (§7 описва защо и откъде идва тази стойност).
+
+### 6.2 Публикува
+
+`doc.extraction.completed` / `doc.extraction.failed` — схемите вече съществуват
+непроменени (`Events/doc.extraction.completed.mjs`, `doc.extraction.failed.mjs`);
+`engine` enum вече поддържа `["local", "ai"]` — добавя се `"hybrid"` (Ниво 1 частично +
+AI допълва).
+
+Ново събитие `doc.ai_usage.recorded` (само отчитане, никой не консумира още — за
+бъдещ billing-service, консуматор ще се добави там, не тук):
+
+```js
+{
+  extraction_id, company_id, model, input_tokens, output_tokens,
+  estimated_cost_usd, occurred_at,
+}
+producers: ["doc-group"], consumers: {}
+```
+
+### 6.3 Изходен формат на `fields` (вътре в doc.extraction.completed)
+
+Същият формат, който `ExtractionService.handleCompleted` вече очаква (виж
+`fleet-service/src/fleet/services/extraction.service.mts`): core полета на ниво документ
+(`document_number`, `country`, `valid_from`, `valid_to`, ...) плюс вложен обект
+`attributes` за type-specific полетата по схемата. Непознати полета се изхвърлят от
+fleet-service, не от doc-service — doc-service праща каквото е извадило, включително
+несигурни/частични стойности; филтрирането по допустими полета е вече построена логика
+от другата страна.
+
+`detected_subject` — best-effort `{ vin, registration_number, driver_name }`, каквото е
+приложимо за `subject_type`-а на разпознатия тип; ползва се от fleet-service's
+`matchSubject` (VIN → рег. номер → име на шофьор).
+
+---
+
+## 7. ДОСТЪП ДО ФАЙЛА
+
+**Пряк S3/MinIO достъп от doc-service, с отделни read-only credentials** (`S3_ACCESS_KEY`/
+`S3_SECRET_KEY` в §2 — различен ключ от upload-service's, само GetObject права на бъкета,
+без List/Put/Delete). Никакъв хоп през upload-service — обектното хранилище е споделена
+инфраструктура (както Kafka), не API на друг сервиз; извикване towards друг сервиз само
+за да прочетеш байт би добавило ненужна runtime зависимост и presigned-URL изтичане за
+нищо.
+
+**Ключът идва готов в събитието** (`file_key`, §6.1) — doc-service никога не пресмята
+`uploads/<id><разширение>` сам и не знае extension-mapping конвенцията на upload-service.
+Веригата, по която стойността стига дотам (промени извън doc-service, описани тук само
+защото са част от договора):
+
+1. upload-service вече изчислява ключа при качване (`UploadService.createUpload` →
+   `row.path`) — само трябва да влезе в тялото на `upload.created`/`upload.completed`
+   (в момента липсва там), заедно с `company_id` (в момента събитията носят само `user_id`
+   — трябва при качване да се пази и company_id, взет от `x-company-id` контекста, както
+   всяко друго company-scoped действие).
+2. fleet-service си пуска нов консюмър за `upload.completed`, който пълни `fleet_db.files`
+   (в момента таблицата е "schema only", без консюмър) — включително новата колона
+   `storage_key`.
+3. `ExtractionService.request` чете `files.storage_key` за файла и го вгражда като
+   `file_key` в `fleet.extraction.requested`.
+
+Нищо от трите не е код на doc-service, но без тях doc-service няма откъде да вземе
+ключа — затова са изредени тук изрично като предпоставка, не само в SPEC-fleet-service.md.
+
+---
+
+## 8. СЪСТОЯНИЕ
+
+doc-service е **stateless** — няма собствена база данни. Идемпотентността на резултата
+е отговорност на fleet-service (`handleCompleted`/`handleFailed` вече проверяват
+`status in (queued, processing)` преди да приложат резултат — повторен `doc.extraction.
+completed` за вече обработена заявка просто не прави нищо). При крах по средата на
+обработка — Kafka consumer group offset-ът не е комитнат, съобщението се предоставя
+отново; ако AI извикването реално е минало преди краха, ще се плати двойно за същия
+файл при повторение — приемлив компромис за stateless дизайн, не се решава сега
+(бъдеща идея: идемпотентен кеш по `extraction_id` с кратък TTL, ако това стане реален
+проблем на практика).
+
+---
+
+## 9. НОРМАЛИЗАЦИЯ — забележка за дублиране
+
+Нормализаторите за VIN/рег. номер/дата (SPEC-fleet-service.md §5) съществуват само на
+Node страна (`fleet-service/src/fleet/lib/normalize.mts`) — doc-service ги преповтаря
+на Python (същите правила: VIN алфабет без I/O/Q, кирилски двойници за рег. номер).
+Целта на дублирането в doc-service е само за собствената преценка за увереност (§4.3,
+"минава форматна проверка") — крайната, обвързваща нормализация пак е на
+fleet-service при `fleet_extraction_confirm`. Разминаване тук води най-лошо до
+ненужно AI извикване (Ниво 1 подцени увереността си), не до грешни данни — fleet винаги
+е последната инстанция.
+
+---
+
+## 10. ГРЕШКИ (регистър)
+
+| code | кога |
+|---|---|
+| DOC_FILE_NOT_FOUND | upload-service internal endpoint върна 404 |
+| DOC_UNSUPPORTED_MIME | mime_type извън поддържания списък за OCR/AI |
+| DOC_OCR_FAILED | tesseract/MRZ парсер хвърли грешка (повреден файл) |
+| DOC_TYPE_NOT_EXTRACTABLE | псевдотип или тип извън `allowed_types` |
+| DOC_AI_UNAVAILABLE | изчерпани retry опити / timeout към Anthropic API |
+| DOC_AI_INVALID_RESPONSE | моделът не върна валиден JSON по заявената схема след retry |
+| DOC_UNREADABLE | и двете нива дадоха readability_score под праг — препоръка за ръчно
+  въвеждане (SPEC-fleet-service.md §13 стъпка 5 вече покрива тази пътека откъм fleet) |
+
+Всички се публикуват като `doc.extraction.failed.error_code` — fleet-service не мапва
+допълнително, показва кода директно (същата конвенция като `FLEET_*` кодовете, просто
+друг префикс за друг сервиз).
+
+---
+
+## 11. ЕТАПИ
+
+1. **Инфраструктура** — Kafka consumer/producer (python, `confluent-kafka`), JSON Schema
+   валидация на входа/изхода (`jsonschema`, ръчно поддържано огледало на `Events/*.mjs` —
+   виж бележка по-долу), Dockerfile + compose entry, health check, S3 read-only клиент
+   (§7), AI клиент (Anthropic SDK), логване. Extraction pipeline:
+   **само Ниво 2** (директно AI за всичко) — целта е верига от край до край да проработи
+   бързо, преди да се инвестира в Ниво-1 парсери.
+2. **Generic OCR + MRZ** — tesseract интеграция, класификатор по маркери (§4.2), MRZ
+   парсер (id_card, passport, visa, driving_licence, residence_permit) — най-висока
+   надеждност за най-малко код.
+3. **EU-код парсери** — registration_certificate, registration_certificate_trailer
+   (хармонизираната мрежа от кодове — най-чест и най-ценен тип за автоматизация).
+4. **Етикетни парсери — застраховки/прегледи** — mtpl(+trailer), casco(+trailer),
+   cmr_insurance, technical_inspection(+trailer), accident_insurance_occupants.
+5. **Етикетни парсери — превозно средство, останало** — tachograph_calibration,
+   speed_limiter_certificate, adr_vehicle_certificate(+trailer), eu_community_licence_copy,
+   cemt_permit, bilateral_permit, vignette, lifting_equipment_inspection, tank_inspection,
+   atp_certificate, reefer_unit_service, xl_certificate.
+6. **Етикетни парсери — шофьор и фирма** — cpc_card, tachograph_card, adr_driver_certificate,
+   driver_attestation, a1_certificate, eu_community_licence, national_transport_licence,
+   transport_manager_certificate, adr_safety_adviser_certificate, cargo_insurance,
+   forwarding_liability_insurance.
+7. **doc.ai_usage.recorded + hardening** — cost logging, retry/timeout политики,
+   observability (метрики за дял Ниво1/Ниво2 по тип — за да си личи кога си заслужава
+   нов парсер).
+8. **(бъдеще, извън тази спецификация)** — sha256/preview/thumbnail/PDF split пайплайн,
+   ако/когато потрябва (виж бележката в `fleet-service/src/migrations/
+   20260924000004_create_files_table.js` — тази таблица вече очаква тези колони, но
+   нищо не блокира AI extraction-а без тях).
+
+Останалите типове от §4.4, маркирани AI-only, остават на Ниво 2 постоянно (без парсер
+в плана) — свободен текст/формат без достатъчно стойност за инвестиция в шаблон.
+
+---
+
+## БЪДЕЩИ ИДЕИ (извън обхвата на тази версия)
+
+- Идемпотентен кеш по `extraction_id` (§8) ако двойното AI плащане при Kafka redelivery
+  стане реален проблем.
+- sha256/preview/thumbnail/PDF split пайплайн (§11 етап 8) — отделна спецификация,
+  когато реално потрябва.
+- Лимит/квота по план за AI извиквания — собственост на billing-service, doc-service
+  само праща `doc.ai_usage.recorded`, не проверява нищо сам.
