@@ -51,7 +51,7 @@ def test_missing_required_field_and_unknown_type():
 
 
 def test_a_blurry_photo_is_never_escalated():
-    assert pipeline.escalation_reasons({**GOOD, "fields": {}}, None, TYPES, quality.LOW_QUALITY - 0.1) == []
+    assert pipeline.escalation_reasons({**GOOD, "fields": {}}, None, TYPES, quality.UNREADABLE - 0.05) == []
 
 
 def _run(monkeypatch, answers, escalation_model="claude-opus-5"):
@@ -120,3 +120,15 @@ def test_noise_below_the_floor_is_neither_hinted_nor_compared():
     assert hybrid.hint_for_prompt(noise)["read"] == {}
     ai_answer = {"detected_type_code": "driving_licence", "fields": {"document_number": "Z021"}, "detected_subject": {}, "confidence": {"document_number": 0.9}}
     assert hybrid.merge(ai_answer, noise)["confidence"]["document_number"] == 0.9
+
+
+def test_a_mediocre_photo_is_still_escalated_because_the_text_may_be_legible():
+    bad = {**GOOD, "detected_subject": {"vin": "WMAH17ZZ04W0000006"}}
+    assert pipeline.escalation_reasons(bad, None, TYPES, 0.4) == ["invalid:vin"]
+
+
+def test_an_invalid_value_never_keeps_a_usable_confidence(monkeypatch):
+    bad = {**GOOD, "detected_subject": {"vin": "WMAH17ZZ04W0000006", "registration_number": "C0000BB"}, "confidence": {"detected_type_code": 0.95, "vin": 0.9}}
+    _, sent = _run(monkeypatch, [bad, bad])
+    completed = dict(sent)["doc.extraction.completed"]
+    assert completed["confidence"]["vin"] <= 0.2

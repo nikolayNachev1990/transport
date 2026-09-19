@@ -39,5 +39,16 @@ def test_cap_never_raises_confidence_and_lowers_readability():
 
 
 def test_low_quality_skips_level1():
-    analysis = pipeline._analyze_level1(b"irrelevant", "image/jpeg", {"registration_certificate"}, 0.3)
+    analysis = pipeline._analyze_level1(b"irrelevant", "image/jpeg", {"registration_certificate"}, quality.UNREADABLE - 0.05)
     assert analysis.result is None and analysis.partial is None
+
+
+def test_mediocre_quality_caps_local_confidence_so_it_cannot_answer_alone():
+    """Between UNREADABLE and LOW_QUALITY Level 1 still reads (and can hint the
+    AI), but no reading can reach the 0.7 an answer needs."""
+    import level1
+
+    data = open(DIR + "driving_licences/germany_licence_wikipedia.jpg", "rb").read()
+    analysis = level1.analyze(data, "image/jpeg", {"driving_licence"}, image_quality=0.5)
+    assert analysis.result is None
+    assert all(value <= 0.5 for value in analysis.partial.confidence.values())

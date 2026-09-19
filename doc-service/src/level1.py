@@ -72,7 +72,7 @@ class Analysis:
         self.partial = partial
 
 
-def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[str]) -> Analysis:
+def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[str], image_quality: float = 1.0) -> Analysis:
     try:
         document = loader.load(file_bytes, mime_type)
     except loader.UnsupportedFormatError:
@@ -112,6 +112,8 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
     partial = None
     partial_solid = 0
     for parsed in attempts:
+        # a reading can't be more certain than the picture allows
+        parsed.confidence = {name: min(value, image_quality) for name, value in parsed.confidence.items()}
         if parsed.type_code not in allowed_type_codes:
             continue
         if _sufficient(parsed.type_code, parsed):

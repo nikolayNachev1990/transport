@@ -14,6 +14,11 @@ import pytesseract
 from PIL import Image, ImageOps
 
 LOW_QUALITY = 0.6
+# Below this nothing legible can be recovered: no local parsing, no second
+# opinion (a stronger model does not make a 4 px letter readable). Between
+# the two, work proceeds but every confidence is capped at the quality, so
+# a local reading can never reach the 0.7 needed to answer alone.
+UNREADABLE = 0.35
 
 
 def _text_height_score(image: Image.Image) -> float:

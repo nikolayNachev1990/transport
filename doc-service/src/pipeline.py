@@ -64,10 +64,10 @@ def _analyze_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set
     tier have a go. A low-quality photo skips Level 1 entirely: OCR that
     misreads consistently still produces confident votes, and its reading
     would only mislead the AI as a hint."""
-    if image_quality < quality.LOW_QUALITY:
+    if image_quality < quality.UNREADABLE:
         return level1.Analysis()
     try:
-        return level1.analyze(file_bytes, mime_type, allowed_codes)
+        return level1.analyze(file_bytes, mime_type, allowed_codes, image_quality)
     except Exception as error:  # noqa: BLE001
         print(f"pipeline: level1 failed, falling back to AI: {error}")
         return level1.Analysis()
@@ -84,7 +84,7 @@ def escalation_reasons(tool_input: dict, partial, type_by_code: dict, image_qual
     two readers that disagree, a field the type requires and nobody found, or
     no type at all. A blurry photo is never escalated: a stronger model does
     not make it legible."""
-    if image_quality < quality.LOW_QUALITY:
+    if image_quality < quality.UNREADABLE:
         return []
     reasons: list[str] = []
     fields = tool_input.get("fields") or {}
@@ -213,6 +213,11 @@ def handle_extraction_requested(body: dict) -> None:
     completed_body["confidence"], completed_body["readability_score"] = quality.cap(
         completed_body["confidence"], completed_body["readability_score"], image_quality
     )
+    # A value that cannot be valid (an 18-character VIN) must not look usable:
+    # a human retypes it, nothing pre-fills it with confidence.
+    if completed_body["confidence"] is not None:
+        for name in validators.invalid_fields(completed_body["fields"], completed_body["detected_subject"] or {}):
+            completed_body["confidence"][name] = min(completed_body["confidence"].get(name, 0.2), 0.2)
     try:
         jsonschema.validate(completed_body, schemas.DOC_EXTRACTION_COMPLETED_BODY)
     except jsonschema.ValidationError as error:
