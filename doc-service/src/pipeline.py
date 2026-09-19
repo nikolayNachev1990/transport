@@ -9,6 +9,7 @@ import datetime
 import jsonschema
 
 import ai_client
+import ai_prep
 import kafka_client
 import hybrid
 import level1
@@ -109,8 +110,9 @@ def handle_extraction_requested(body: dict) -> None:
         kafka_client.send("doc.extraction.completed", completed_body)
         return
 
+    ai_bytes, ai_mime = ai_prep.prepare(file_bytes, mime_type)
     try:
-        result = ai_client.extract(file_bytes, mime_type, allowed_types, hints, hybrid.hint_for_prompt(analysis.partial) if analysis.partial else None)
+        result = ai_client.extract(ai_bytes, ai_mime, allowed_types, hints, hybrid.hint_for_prompt(analysis.partial) if analysis.partial else None)
     except ai_client.UnsupportedMimeTypeError:
         _publish_failed(extraction_id, "DOC_UNSUPPORTED_MIME")
         return

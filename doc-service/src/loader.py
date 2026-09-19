@@ -17,9 +17,13 @@ import openpyxl
 import pytesseract
 from docx import Document as DocxDocument
 from PIL import Image
+from pillow_heif import register_heif_opener
 
 import config
 
+register_heif_opener()  # iPhone photos are HEIC by default
+
+MAX_DECODE_EDGE = 3000  # a 6543x4131 phone photo decodes to ~80 MB; nothing here reads finer detail than this
 MIN_NATIVE_TEXT_CHARS = 40
 PDF_RENDER_DPI = 200
 
@@ -51,9 +55,16 @@ def _ocr(image: Image.Image) -> str:
 
 def _load_image(data: bytes) -> LoadedDocument:
     image = Image.open(io.BytesIO(data))
+    if max(image.size) > MAX_DECODE_EDGE:
+        # JPEG can be decoded at reduced size straight from the file (cheap);
+        # other formats are shrunk after decoding.
+        image.draft("RGB", (MAX_DECODE_EDGE, MAX_DECODE_EDGE))
     image.load()
-    if image.mode not in ("RGB", "L"):
-        image = image.convert("RGB")
+    if max(image.size) > MAX_DECODE_EDGE:
+        image.thumbnail((MAX_DECODE_EDGE, MAX_DECODE_EDGE), Image.LANCZOS)
+    # Always a plain in-memory Image: HEIC files open as a pillow-heif
+    # subclass that pytesseract refuses, and palette/CMYK modes OCR badly.
+    image = image.convert("L" if image.mode == "L" else "RGB")
     return LoadedDocument(pages=[Page(text=_ocr(image), source="ocr", image=image)], kind="image")
 
 

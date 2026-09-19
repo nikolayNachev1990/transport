@@ -13,13 +13,18 @@ from PIL import Image
 _CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
 
+DETECT_EDGE = 1200  # face detection at full phone-photo size costs hundreds of MB for no gain
+
+
 def extract_portrait(card: Image.Image) -> Image.Image | None:
-    gray = cv2.cvtColor(np.array(card.convert("RGB")), cv2.COLOR_RGB2GRAY)
+    scale = min(1.0, DETECT_EDGE / max(card.size))
+    small = card.convert("L").resize((round(card.width * scale), round(card.height * scale))) if scale < 1 else card.convert("L")
+    gray = np.array(small)
     min_side = max(30, min(gray.shape) // 8)
     faces = _CASCADE.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(min_side, min_side))
     if len(faces) == 0:
         return None
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+    x, y, w, h = (value / scale for value in max(faces, key=lambda f: f[2] * f[3]))
 
     # face -> ID photo: wider than the face, taller than wide (4:5), the
     # head sits in the upper part with shoulders below
