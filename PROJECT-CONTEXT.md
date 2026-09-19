@@ -321,6 +321,33 @@ bug, but worth remembering before assuming query_db is "caught up" — a real re
 row's owning REST call re-triggered (there's no bulk backfill/snapshot endpoint on fleet-service yet,
 unlike company-service's `/internal/snapshot/companies`).
 
-**Next up: Etap 8** — the recognition contract (`document_extractions`, `fleet_extraction_request`/
-`confirm`/`reject`, a test-only `doc.extraction.*` publisher in `tester/`, no real doc-service). This
-is the last etap per SPEC-fleet-service.md §17.
+Etap 8 (recognition contract) is done too — `document_extractions`, `fleet_extraction_request`/
+`confirm`/`reject`, 52 Hasura Actions, `tester/tests/fleet.spec.mjs`. fleet-service now also mirrors
+`upload.completed` into `files` (with `storage_key`) and embeds `file_key` + full `allowed_types` in
+`fleet.extraction.requested`. `document_extractions.engine` allows `local | ai | hybrid`.
+
+## doc-service (Python): STATE = Level 1 + hybrid working end to end (SPEC-doc-service.md)
+
+Stateless Kafka consumer (`doc-group`): reads the file straight from S3 with a GetObject-only key,
+tries Level 1 (local, no AI), else AI (Claude Haiku 4.5, ~$0.006/doc), publishes
+`doc.extraction.completed|failed` + `doc.ai_usage.recorded`. Not a Node service: no `core/`, no Hasura.
+
+- **Level 1 parsers** (`src/parsers/`): BG registration certificate (Part II MRZ + OCR-vote on Part I/II),
+  EU driving licence / CPC / tachograph card (numbered fields 1-9, told apart by title), BG roadworthiness
+  certificate (native text or scan). Confidence = weakest character's vote share; Level 1 only answers when
+  every required field is >= 0.7, otherwise the AI gets its reading as an unverified hint and results are
+  merged per field (`hybrid.py`, `engine = "hybrid"`).
+- **Guards**: `quality.py` caps confidence by letter height/sharpness (a 276 px thumbnail made the AI report
+  a wrong type with 0.85); `ai_prep.py` shrinks photos (API limit), converts HEIC, cuts PDFs to 3 pages;
+  consumer reads `earliest` with a 24 h staleness guard.
+- **Tests** run inside the container (`docker compose run --rm --no-deps doc-service python -m pytest tests`)
+  against `tester/fixtures/` (git-ignored; `documents/` = public specimens, `private/` = real customer
+  documents, never commit). Ground truth is read from the specimens; a wrong field with high confidence is
+  the only unacceptable outcome. `test_event_contracts.py` guards Python-vs-Node schema drift.
+- **Lessons (all found only by pushing real files through Kafka, never by unit tests)**: `hybrid` missing from
+  the Node event schema AND a DB CHECK; `latest` offset reset losing requests during restarts; OOM kill at
+  512 MB on a 6543 px photo; API rejects >5 MB images. Recreate with `--no-deps`, never bare
+  `--force-recreate` (it restarts Kafka/MinIO and every Node service loses its connection).
+- **Not done**: parsers for MTPL/CASCO/green card (no filled specimens exist publicly — need real ones),
+  tachograph workshop protocol (only a 276 px image), portrait crop exists (`portrait.py`) but is not wired.
+  Order/CMR/T1/T2 documents belong to the future order-service.
