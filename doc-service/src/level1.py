@@ -103,16 +103,23 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
         # dark table, an MRZ), and PDF pages are printed documents that never
         # need the rest.
         ordered = sorted(IMAGE_PARSERS, key=lambda pair: not pair[1](page.text))
-        page_found = 0
+        answered = False
         for image_parser, plausible in ordered:
             if time.monotonic() > deadline:
                 print("level1: time budget spent, skipping remaining parsers")
                 break
-            if not plausible(page.text) and (document.kind != "image" or page_found):
+            if not plausible(page.text) and (document.kind != "image" or answered):
                 continue
             if parsed := image_parser(page.image):
                 attempts.append(parsed)
-                page_found += 1
+                # Two solid fields identify the document; the remaining
+                # (implausible) parsers can be skipped. Solid, not sufficient:
+                # an OCR VIN is capped below the answering bar on purpose, yet
+                # it still says "this is a registration certificate". Masked
+                # placeholders (XXXX...) are rejected by the parser itself, so
+                # a false positive can't get here.
+                if parsed.type_code in allowed_type_codes and sum(1 for v in parsed.confidence.values() if v >= 0.5) >= 2:
+                    answered = True
 
     partial = None
     partial_solid = 0

@@ -79,7 +79,14 @@ def _clean_name(value: str) -> str | None:
 
 def _number(value: str) -> str | None:
     token = re.sub(r"[^A-Z0-9]", "", common.to_latin(value).upper().split()[0]) if value.split() else ""
-    return token if len(token) >= 6 and re.search(r"\d", token) else None
+    if len(token) >= 6 and re.search(r"\d", token):
+        return token
+    # A number read as pure letters full of O is OCR turning zeros into O
+    # ('AOAOOOOOOA' for A0A000000A): an all-letter licence number that long
+    # does not exist, so restore the zeros.
+    if len(token) >= 8 and token.count("O") >= 4:
+        return token.replace("O", "0")
+    return None
 
 
 _CPC_WORDS = re.compile(r"qualifi|квалификац|kwalifikac|kvalifik|profesn|carte de qualification|fimo|\bcqc\b|code 95|код 95", re.IGNORECASE)
@@ -99,6 +106,26 @@ def _kind(text: str) -> str:
 def _authority(value: str) -> str | None:
     cleaned = re.sub(r"[^A-Za-zÀ-žА-я0-9 .&-]", "", value).strip()
     return cleaned if len(cleaned) >= 3 and re.search(r"[A-Za-zÀ-žА-я]{3}", cleaned) else None
+
+
+_FUSED_DATE = re.compile(r"(?<![\d.])4[0-9A-Za-zА-Яа-я]?\s*[.,:]?\s*(\d{2}[.,]\d{2}[.,]\d{2,4})(?!\d)")
+
+
+def _fused_issue_expiry(text: str) -> tuple[str, str] | None:
+    """OCR often welds a field label to its value ('4a.20.03.21' -> '4420.03.21'
+    or '4519.03.36'). When the labelled route found no 4a/4b, take the dates
+    that follow a '4' on their line: two distinct ones are issue (earlier) and
+    expiry (later). Dates without a leading 4 — the date of birth on line 3,
+    a stamped 'MUSTER 10.08.20' — never qualify."""
+    found = set()
+    for line in text.splitlines():
+        for match in _FUSED_DATE.finditer(line):
+            if d := _date(match.group(1), future_ok=True):
+                found.add(d)
+    if len(found) == 2:
+        first, second = sorted(found)
+        return first, second
+    return None
 
 
 def _categories(value: str) -> list[str]:
@@ -122,6 +149,7 @@ def parse_image(image: Image.Image) -> ParseResult | None:
         loose_numbers.update({token for token in re.findall(r"(?<!\d)\d{9}(?!\d)", text)})
     for text in texts:
         seen: set[tuple[str, str]] = set()
+        labelled_dates = 0
         for line in text.splitlines():
             for label, value in _labeled_values(line):
                 candidate: tuple[str, str] | None = None
@@ -148,6 +176,11 @@ def parse_image(image: Image.Image) -> ParseResult | None:
                 if candidate and candidate not in seen:
                     seen.add(candidate)
                     votes[candidate[0]][candidate[1]] += 1
+                    if candidate[0] in ("issue", "expiry"):
+                        labelled_dates += 1
+        if not labelled_dates and (fused := _fused_issue_expiry(text)):
+            votes["issue"][fused[0]] += 1
+            votes["expiry"][fused[1]] += 1
 
     best: dict[str, tuple[str, float]] = {}
     for name, counter in votes.items():

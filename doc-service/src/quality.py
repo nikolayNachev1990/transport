@@ -11,6 +11,8 @@ import io
 import cv2
 import numpy as np
 import pytesseract
+
+import ocr
 from PIL import Image, ImageOps
 
 LOW_QUALITY = 0.6
@@ -22,27 +24,41 @@ UNREADABLE = 0.35
 
 
 def _text_height_score(image: Image.Image) -> float:
-    """How tall are the letters, in pixels? That — not the file's dimensions —
-    decides legibility: a 559 px card photo has 14 px text and reads fine, a
-    276 px protocol has ~4 px text and nothing can read it. Median height of
-    the words tesseract is reasonably sure about; too few confident words
-    means there is barely any legible text at all."""
-    data = pytesseract.image_to_data(ImageOps.grayscale(image), lang="eng", config="--psm 11", output_type=pytesseract.Output.DICT)
-    heights = [
-        data["height"][i]
-        for i, text in enumerate(data["text"])
-        if text.strip() and len(text.strip()) >= 3 and float(data["conf"][i]) >= 50
-    ]
-    if len(heights) < 5:
-        return 0.4
-    median = sorted(heights)[len(heights) // 2]
-    if median >= 16:
+    """How tall are the letters that can actually be read, in pixels? That —
+    not the file's dimensions — decides legibility: a 559 px card photo has
+    14 px text and reads fine, a 276 px protocol has ~3 px text and nothing
+    can read it.
+
+    Measured with the same preprocessing the parsers use (2x upscale +
+    threshold, best of two thresholds): a plain grayscale pass reads a Part II
+    card's guilloche background as noise and scored it like the unreadable
+    thumbnail (36 vs 35 mean confidence), the binarised pass separates them
+    (27-51 confident words at 10-11 px against 2 at 2.5 px)."""
+    gray = ImageOps.grayscale(image)
+    if max(gray.size) > 2400:
+        ratio = 2400 / max(gray.size)
+        gray = gray.resize((round(gray.width * ratio), round(gray.height * ratio)))
+    big = gray.resize((gray.width * 2, gray.height * 2), Image.LANCZOS)
+    best_heights: list[float] = []
+    for threshold in (130, 150):
+        data = pytesseract.image_to_data(ocr._binarize(big, threshold), lang="eng", config="--psm 11", output_type=pytesseract.Output.DICT)
+        heights = [
+            data["height"][i] / 2
+            for i, text in enumerate(data["text"])
+            if len(text.strip()) >= 3 and float(data["conf"][i]) >= 70
+        ]
+        if len(heights) > len(best_heights):
+            best_heights = heights
+    if len(best_heights) < 5:
+        return 0.3
+    median = sorted(best_heights)[len(best_heights) // 2]
+    if median >= 13:
         return 1.0
-    if median >= 12:
+    if median >= 10:
         return 0.85
-    if median >= 9:
+    if median >= 8:
         return 0.65
-    if median >= 6:
+    if median >= 5:
         return 0.45
     return 0.3
 

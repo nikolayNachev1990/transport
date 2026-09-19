@@ -17,6 +17,8 @@ import ocr
 from parsers import common
 
 VIN_RE = re.compile(r"[A-HJ-NPR-Z0-9]{17}")
+AMBIGUOUS_VIN_CHARS = set("Z2S5B8G6")
+AMBIGUOUS_VIN_CAP = 0.6
 
 
 @dataclass
@@ -32,11 +34,17 @@ class ParseResult:
     type_evidence_strong: bool = False
 
 
+def looks_like_a_mask(vin: str) -> bool:
+    """Specimens print 'XXXXXXXXXXXXXXXXX' or 'X0X0XX0X0XX0X0X' in the VIN
+    field. A real VIN has a dozen or so different characters."""
+    return len(set(vin)) < 6
+
+
 def _vin_candidates(votes) -> dict[str, int]:
     candidates: dict[str, int] = {}
     for token, count in votes.items():
         cleaned = common.alnum_upper(token).replace("O", "0").replace("Q", "0").replace("I", "1")
-        if len(cleaned) == 17 and VIN_RE.fullmatch(cleaned):
+        if len(cleaned) == 17 and VIN_RE.fullmatch(cleaned) and not looks_like_a_mask(cleaned):
             candidates[cleaned] = candidates.get(cleaned, 0) + count
     return candidates
 
@@ -108,6 +116,12 @@ def parse_image(image: Image.Image) -> ParseResult | None:
         return None
 
     if vin:
+        # OCR reads Z as 2 (and S/5, B/8, G/6) the same way in every variant,
+        # so agreement between variants proves nothing about those characters:
+        # a measured VIN came out wrong with 75% agreement. A VIN containing
+        # one of them is never trusted on OCR alone; the AI checks it.
+        if set(vin) & AMBIGUOUS_VIN_CHARS:
+            vin_confidence = min(vin_confidence, AMBIGUOUS_VIN_CAP)
         result.subject["vin"] = vin
         result.confidence["vin"] = round(vin_confidence, 3)
     if plate:

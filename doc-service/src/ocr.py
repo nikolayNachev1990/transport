@@ -59,11 +59,16 @@ def vote_lines(variants: list[list[str]]) -> tuple[list[str], list[float]]:
     return consensus, scores
 
 
-def token_votes(image: Image.Image, scales=(2,), thresholds=(110, 130, 150, 170), psms=(6, 11), lang: str = "eng+bul") -> tuple[Counter, int, str]:
+def token_votes(image: Image.Image, scales=None, thresholds=(110, 130, 150, 170), psms=(6, 11), lang: str = "eng+bul") -> tuple[Counter, int, str]:
     """Runs OCR under several preprocessings and counts, per distinct token,
     how many runs produced it. Returns (votes, run_count, best_full_text) —
     the full text of the most productive run is kept for classification."""
     gray = ImageOps.grayscale(image)
+    if scales is None:
+        # aim for a long edge around 3000 px (a fixed 2x made a 1240x1753
+        # scan 3500 px tall; below ~3000 the Z/2 of a VIN stops being
+        # readable; a 6000 px phone photo needs no enlarging at all)
+        scales = (max(1, round(3000 / max(gray.size))),)
     votes: Counter = Counter()
     runs = 0
     best_text = ""

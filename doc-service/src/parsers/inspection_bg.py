@@ -54,6 +54,13 @@ def _candidates(text: str) -> dict[str, str]:
         if plate:
             found["plate"] = plate
             break
+    if "plate" not in found:
+        # the "Рег. №" label is small and is often the first thing OCR loses;
+        # fall back to any Bulgarian-format plate token in the text
+        for token in re.findall(r"[A-Za-zА-Яа-я0-9]{6,9}", text):
+            if (plate := mrz._repair_plate(common.alnum_upper(token))) and len(set(plate)) > 3:
+                found["plate"] = plate
+                break
     if PATTERNS["passed"].search(text):
         found["passed"] = "yes"
     return found

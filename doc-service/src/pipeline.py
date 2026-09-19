@@ -54,7 +54,7 @@ def _normalize_completed(extraction_id: str, tool_input: dict) -> dict:
         "detected_type_code": tool_input.get("detected_type_code"),
         "detected_subject": tool_input.get("detected_subject") or None,
         "fields": fields,
-        "confidence": tool_input.get("confidence") or None,
+        "confidence": dict(tool_input["confidence"]) if tool_input.get("confidence") else None,  # a copy: later steps cap values in place
         "readability_score": tool_input.get("readability_score"),
     }
 
