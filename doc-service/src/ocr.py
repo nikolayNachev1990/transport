@@ -78,10 +78,21 @@ def token_votes(image: Image.Image, scales=(2,), thresholds=(110, 130, 150, 170)
     return votes, runs, best_text
 
 
+def normalize_size(image: Image.Image, target_long_edge: int = 2400) -> Image.Image:
+    """Photos straight from a phone can be 6000+ px wide (OCR then takes
+    minutes and gets no better); tiny scans need enlarging. Bring everything
+    to a long edge near what tesseract works best with."""
+    long_edge = max(image.size)
+    if 0.7 * target_long_edge <= long_edge <= 1.3 * target_long_edge:
+        return image
+    ratio = target_long_edge / long_edge
+    return image.resize((round(image.width * ratio), round(image.height * ratio)), Image.LANCZOS)
+
+
 def text_variants(image: Image.Image, scale: int = 2, thresholds=(0, 110, 130, 150, 170), psms=(6, 4), lang: str = "eng+bul") -> list[str]:
     """Full OCR text under several preprocessings (threshold 0 = grayscale
     without binarization). Line-oriented parsers vote across these."""
-    gray = ImageOps.grayscale(image)
+    gray = ImageOps.grayscale(normalize_size(image, 1400))
     big = gray.resize((gray.width * scale, gray.height * scale), Image.LANCZOS)
     texts = []
     for threshold in thresholds:

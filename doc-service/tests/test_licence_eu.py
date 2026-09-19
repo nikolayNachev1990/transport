@@ -46,3 +46,26 @@ def test_greece():
     check(result, "valid_from", "2019-02-19")
     check(result, "valid_to", "2029-02-18")
     assert [c["category"] for c in result.fields["attributes"]["categories"]] == ["AM", "A", "B"]
+
+
+def test_bulgaria_bg5_current_format():
+    """The current Bulgarian card (ИВАНОВА МАРИЦА РАДНЕВА, 280000000)."""
+    result = parse("bulgaria_licence_bg5_recto_ec_europa.jpg")
+    check(result, "document_number", "280000000")
+    check(result, "valid_from", "2013-01-19")
+    check(result, "valid_to", "2018-01-19")
+    name, confidence = field(result, "driver_name")
+    assert (name or "").startswith("ИВАНОВА") or confidence < LOW
+    categories = [c["category"] for c in result.fields["attributes"]["categories"]]
+    assert {"AM", "A", "B", "C", "D", "BE", "CE", "DE"} <= set(categories) or result.confidence["categories"] < LOW
+
+
+def test_germany_cpc_card():
+    """Fahrerqualifizierungsnachweis: same 1-9 layout, told apart by its title;
+    document number is the serial 5b, not the licence number 5a."""
+    result = parse("../driver_cards/germany_cpc_front_wikimedia.jpg")
+    assert result.type_code == "cpc_card"
+    check(result, "document_number", "FQNZ0214A713X1")
+    check(result, "valid_from", "2022-06-14")
+    check(result, "valid_to", "2027-06-13")
+    check(result, "driver_name", "Mustermann Erika")

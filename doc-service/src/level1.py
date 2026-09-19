@@ -21,6 +21,8 @@ REQUIRED = {
     "registration_certificate": ("registration_number", "vin", "document_number"),
     "registration_certificate_trailer": ("registration_number", "vin", "document_number"),
     "driving_licence": ("document_number", "valid_to", "driver_name"),
+    "cpc_card": ("document_number", "valid_to", "driver_name"),
+    "tachograph_card": ("document_number", "valid_to", "driver_name"),
 }
 
 
