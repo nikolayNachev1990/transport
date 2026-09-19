@@ -76,9 +76,9 @@ def test_pipeline_publishes_a_hybrid_result(monkeypatch):
     sent = []
     seen_hint = {}
 
-    def fake_ai(file_bytes, mime_type, allowed_types, hints, local_hint=None):
+    def fake_ai(file_bytes, mime_type, allowed_types, hints, local_hint=None, model=None):
         seen_hint["hint"] = local_hint
-        return {"tool_input": ai(), "input_tokens": 4000, "output_tokens": 300, "cache_read_tokens": 0, "cache_write_tokens": 0}
+        return {"model": "claude-sonnet-5", "tool_input": ai(), "input_tokens": 4000, "output_tokens": 300, "cache_read_tokens": 0, "cache_write_tokens": 0}
 
     monkeypatch.setattr(pipeline.s3_client, "get_object_bytes", lambda key: data)
     monkeypatch.setattr(pipeline.ai_client, "extract", fake_ai)

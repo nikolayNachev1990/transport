@@ -70,6 +70,43 @@ def _tool_schema(allowed_type_codes: list[str]) -> dict:
     }
 
 
+# Which printed field feeds which value, per document type. Measured, not
+# guessed: with the type list alone both Haiku and Sonnet took the driving
+# licence number (5a) as a CPC card's number instead of its serial (5b), the
+# permit number as a roadworthiness protocol number, and the date of birth as
+# a licence's issue date. These are conventions of each document, not
+# something a model can infer, so they live here next to the prompt.
+_NUMBERED_CARD_DATES = "valid_from = field 4a (issue date), valid_to = field 4b (expiry) — never field 3, which is the date of birth."
+FIELD_RULES = {
+    "registration_certificate": (
+        "vin = field E; registration_number = field A (the plate); document_number = the number printed on the form "
+        "itself (e.g. 'N 000000000' / the Part II number), never the plate; first registration date = field B. A Part II card "
+        "may carry three lines of '<' characters, the machine-readable zone: line 1 holds the document number and the plate, "
+        "line 2 the VIN (17 characters) followed by the owner id, line 3 the owner's name — read them when present."
+    ),
+    "registration_certificate_trailer": "same fields as a vehicle registration certificate: vin = field E, registration_number = field A.",
+    "driving_licence": f"document_number = field 5 (the licence number); driver_name = fields 1 and 2; {_NUMBERED_CARD_DATES} attributes.categories = the codes listed in field 9.",
+    "cpc_card": f"document_number = field 5b (the card's own serial number) — NOT 5a (the driving licence number) and not 4d; {_NUMBERED_CARD_DATES}",
+    "tachograph_card": f"document_number = field 5a (the card number); {_NUMBERED_CARD_DATES} attributes.issuing_authority = field 4c.",
+    "technical_inspection": (
+        "document_number = 'Протокол №' (the protocol number) — NOT 'Разрешение №'; valid_from = the date of the inspection "
+        "('Прегледът е извършен на'); valid_to = 'Подлежи на преглед до'; attributes.odometer_km = Километропоказател."
+    ),
+    "technical_inspection_trailer": "same as technical_inspection: document_number = 'Протокол №', not 'Разрешение №'.",
+    "xl_certificate": "document_number = the certificate number (Zertifikat-Nr. / Certificate No.); vin = the full 17-character vehicle identification number.",
+    "mtpl": "document_number = the policy number; valid_from/valid_to = the validity period; a green card number goes to attributes.green_card_number.",
+}
+GENERAL_RULES = (
+    "A VIN is exactly 17 characters and never contains I, O or Q: transcribe it character by character and count them. "
+    "Copy numbers exactly as printed — do not add, drop or 'fix' characters."
+)
+
+
+def _rules_for(allowed_types: list[dict]) -> str:
+    lines = [f"- {t['code']}: {FIELD_RULES[t['code']]}" for t in allowed_types if t["code"] in FIELD_RULES]
+    return "\n\nField rules per type:\n" + "\n".join(lines) if lines else ""
+
+
 def _compact_type(document_type: dict) -> dict:
     """Only what the model needs to pick a type and fill it: code, subject,
     which core fields the type carries, and the attribute properties. The
@@ -97,6 +134,7 @@ def _types_block(allowed_types: list[dict]) -> str:
         "Possible types, each with its own attributes_schema — fill 'fields.attributes' using "
         "ONLY property names from the chosen type's attributes_schema, nothing else:\n"
         f"{json.dumps([_compact_type(t) for t in allowed_types], separators=(',', ':'), ensure_ascii=False)}\n\n"
+        f"{GENERAL_RULES}{_rules_for(allowed_types)}\n\n"
         "Use the submit_extraction tool to report. If a field isn't visible or you aren't "
         "confident, leave it null rather than guessing. Dates must be ISO 8601 (YYYY-MM-DD)."
     )
@@ -122,7 +160,7 @@ def _content_block(file_bytes: bytes, mime_type: str) -> dict:
     raise UnsupportedMimeTypeError(mime_type)
 
 
-def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints: dict, local_hint: dict | None = None) -> dict:
+def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints: dict, local_hint: dict | None = None, model: str | None = None) -> dict:
     """Returns tool_input plus token counts, cache reads/writes reported separately (they are priced differently)."""
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY, timeout=config.AI_REQUEST_TIMEOUT_SECONDS)
     allowed_type_codes = [t["code"] for t in allowed_types]
@@ -133,7 +171,7 @@ def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints:
     for attempt in range(config.AI_MAX_RETRIES + 1):
         try:
             response = client.messages.create(
-                model=config.ANTHROPIC_MODEL,
+                model=model or config.ANTHROPIC_MODEL,
                 max_tokens=2048,
                 system=system,
                 tools=[_tool_schema(allowed_type_codes)],
@@ -154,6 +192,7 @@ def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints:
 
         usage = response.usage
         return {
+            "model": model or config.ANTHROPIC_MODEL,
             "tool_input": tool_use.input,
             "input_tokens": usage.input_tokens,
             "output_tokens": usage.output_tokens,

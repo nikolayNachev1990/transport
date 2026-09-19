@@ -17,6 +17,7 @@ answers a 276 px thumbnail with confidence 0.85 and a wrong number.
 AGREE_CONFIDENCE = 0.95
 DISAGREE_CAP = 0.5
 LOCAL_ONLY_MIN = 0.5
+IGNORE_BELOW = 0.25  # a local reading this shaky is noise: neither hinted nor compared
 DEFAULT_AI_CONFIDENCE = 0.8
 
 
@@ -32,7 +33,12 @@ def hint_for_prompt(partial) -> dict:
     flat = _flatten(partial.fields, partial.subject)
     return {
         "type_code": partial.type_code,
-        "read": {name: {"value": value, "ocr_confidence": _local_confidence(partial, name)} for name, value in flat.items()},
+        "type_code_basis": "printed title/standard" if partial.type_evidence_strong else "guessed from the OCR'd values, may be wrong",
+        "read": {
+            name: {"value": value, "ocr_confidence": _local_confidence(partial, name)}
+            for name, value in flat.items()
+            if _local_confidence(partial, name) >= IGNORE_BELOW
+        },
     }
 
 
@@ -60,6 +66,8 @@ def merge(tool_input: dict, partial) -> dict:
     for name, local_value in local_flat.items():
         short = name.split(".", 1)[-1]
         local_conf = _local_confidence(partial, name)
+        if local_conf < IGNORE_BELOW:
+            continue
         if name in ai_flat:
             if _same(ai_flat[name], local_value):
                 confidence[short] = max(AGREE_CONFIDENCE, local_conf)

@@ -14,8 +14,10 @@ import loader
 from parsers import inspection_bg, licence, registration, xl_certificate
 
 MIN_FIELD_CONFIDENCE = 0.7
-MIN_HINT_CONFIDENCE = 0.5
-MIN_HINT_FIELDS = 2
+# A reading is worth handing to the AI as an unverified hint from very low
+# confidence: the point is the cross-check. Below this a reading is noise.
+MIN_HINT_CONFIDENCE = 0.25
+MIN_HINT_FIELDS = 1
 # (parser, plausibility check on the loader's cheap OCR text)
 IMAGE_PARSERS = (
     (registration.parse_image, registration.plausible),
@@ -116,8 +118,8 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
             readability = round(sum(parsed.confidence.values()) / len(parsed.confidence), 3)
             return Analysis(result=Level1Result(parsed.type_code, parsed.fields, parsed.subject, parsed.confidence, readability))
         print(f"level1: {parsed.type_code} found but not confident enough, confidences={parsed.confidence}")
-        # Only a reading with real substance goes to the AI as a hint; two
-        # shaky fields would just anchor it on a wrong document type.
+        # A German licence number read at 0.3 was exactly right while the AI
+        # added a character; without the hint there is nothing to disagree with.
         solid = sum(1 for value in parsed.confidence.values() if value >= MIN_HINT_CONFIDENCE)
         if (solid >= MIN_HINT_FIELDS or parsed.type_evidence_strong) and (partial is None or solid > partial_solid):
             partial, partial_solid = parsed, solid

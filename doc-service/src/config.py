@@ -31,7 +31,12 @@ S3_REGION = _optional("S3_REGION", "us-east-1")
 S3_ENDPOINT = _required("S3_ENDPOINT_IN_DOCKER")
 
 ANTHROPIC_API_KEY = _required("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = _optional("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+# Sonnet by default: on a labelled set Haiku got 77% of fields and 12/13 types,
+# Sonnet 91% and 13/13 (tools/eval_ai.py). The stronger model is only called
+# when an answer fails validation or disagrees with the local reading; set it
+# to an empty value to disable escalation.
+ANTHROPIC_MODEL = _optional("ANTHROPIC_MODEL", "claude-sonnet-5")
+ANTHROPIC_MODEL_ESCALATION = os.environ.get("ANTHROPIC_MODEL_ESCALATION", "claude-opus-5")
 AI_REQUEST_TIMEOUT_SECONDS = float(_optional("AI_REQUEST_TIMEOUT_SECONDS", "30"))
 AI_MAX_RETRIES = int(_optional("AI_MAX_RETRIES", "2"))
 
