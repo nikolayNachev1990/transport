@@ -326,28 +326,35 @@ Etap 8 (recognition contract) is done too — `document_extractions`, `fleet_ext
 `upload.completed` into `files` (with `storage_key`) and embeds `file_key` + full `allowed_types` in
 `fleet.extraction.requested`. `document_extractions.engine` allows `local | ai | hybrid`.
 
-## doc-service (Python): STATE = Level 1 + hybrid working end to end (SPEC-doc-service.md)
+## doc-service (Python): STATE = working end to end, quality-first (SPEC-doc-service.md)
 
-Stateless Kafka consumer (`doc-group`): reads the file straight from S3 with a GetObject-only key,
-tries Level 1 (local, no AI), else AI (Claude Haiku 4.5, ~$0.006/doc), publishes
-`doc.extraction.completed|failed` + `doc.ai_usage.recorded`. Not a Node service: no `core/`, no Hasura.
+Kafka consumer (`doc-group`) with an internal work queue (`dispatcher.py`: worker pool, one FIFO per
+company served round-robin with a per-company cap, backpressure, offsets committed only as the
+contiguous finished prefix, failed jobs answered with `DOC_INTERNAL_ERROR`). Reads the file straight from
+S3 (GetObject-only key), tries Level 1 (local, no AI), else the AI; publishes `doc.extraction.completed|failed`
++ one `doc.ai_usage.recorded` per real AI call. Not a Node service: no `core/`, no Hasura.
 
-- **Level 1 parsers** (`src/parsers/`): BG registration certificate (Part II MRZ + OCR-vote on Part I/II),
-  EU driving licence / CPC / tachograph card (numbered fields 1-9, told apart by title), BG roadworthiness
-  certificate (native text or scan). Confidence = weakest character's vote share; Level 1 only answers when
-  every required field is >= 0.7, otherwise the AI gets its reading as an unverified hint and results are
-  merged per field (`hybrid.py`, `engine = "hybrid"`).
-- **Guards**: `quality.py` caps confidence by letter height/sharpness (a 276 px thumbnail made the AI report
-  a wrong type with 0.85); `ai_prep.py` shrinks photos (API limit), converts HEIC, cuts PDFs to 3 pages;
-  consumer reads `earliest` with a 24 h staleness guard.
-- **Tests** run inside the container (`docker compose run --rm --no-deps doc-service python -m pytest tests`)
-  against `tester/fixtures/` (git-ignored; `documents/` = public specimens, `private/` = real customer
-  documents, never commit). Ground truth is read from the specimens; a wrong field with high confidence is
-  the only unacceptable outcome. `test_event_contracts.py` guards Python-vs-Node schema drift.
-- **Lessons (all found only by pushing real files through Kafka, never by unit tests)**: `hybrid` missing from
-  the Node event schema AND a DB CHECK; `latest` offset reset losing requests during restarts; OOM kill at
-  512 MB on a 6543 px photo; API rejects >5 MB images. Recreate with `--no-deps`, never bare
-  `--force-recreate` (it restarts Kafka/MinIO and every Node service loses its connection).
-- **Not done**: parsers for MTPL/CASCO/green card (no filled specimens exist publicly — need real ones),
-  tachograph workshop protocol (only a 276 px image), portrait crop exists (`portrait.py`) but is not wired.
+- **Level 1 parsers** (`src/parsers/`): BG registration certificate (Part II MRZ + OCR-vote), EU driving
+  licence / CPC / tachograph card (numbered fields 1-9), BG roadworthiness certificate, Code-XL certificate.
+  Confidence = vote share; Level 1 answers alone only when every required field is >= 0.7, otherwise its reading
+  is an unverified hint and the AI answer is merged per field (`hybrid.py`, `engine = "hybrid"`).
+  Scoreboard (`tools/eval_level1.py`, 13 labelled files): 3 answer alone, 10 hint, 0 wrong at >= 0.7 —
+  guarded by `tests/test_level1_invariants.py`.
+- **AI tiers** (measured, `tools/eval_ai.py`): Sonnet 5 default (91% fields, ~$0.014/doc), Opus 5 only as a
+  second opinion on checkable grounds (invalid value, disagreement with Level 1, missing required field, no
+  type, the model's own doubt on an identity field). Per-type field rules live in `ai_client.FIELD_RULES`.
+- **Guards**: `quality.py` (legible words with the parsers' preprocessing; < 0.35 nothing runs, 0.35-0.6
+  confidences capped at the quality); `validators.py` (invalid VIN/date -> confidence <= 0.2); `ai_prep.py`
+  (API image limit, HEIC, PDFs cut to 3 pages); consumer reads `earliest` with a 24 h staleness guard; OCR-only
+  VINs with Z/2/S/5/B/8/G/6 are capped at 0.6 (OCR misreads them identically in every variant).
+- **Tests** run inside the container (`docker compose run --rm --no-deps doc-service python -m pytest tests`,
+  ~8 min, run it in the background) against `tester/fixtures/` (git-ignored; `documents/` = public specimens,
+  `private/` = real customer documents, never commit). `test_event_contracts.py` guards Python-vs-Node schema drift.
+- **Lessons (all found only by pushing real files through Kafka)**: `hybrid` missing from the Node event schema
+  AND a DB CHECK; `latest` offset reset losing requests during restarts; OOM kill at 512 MB on a 6543 px photo;
+  API rejects big images. Recreate with `--no-deps`, never bare `--force-recreate`.
+- **Not done / known limits**: parsers for MTPL/CASCO/green card/vignette (no filled specimens exist publicly —
+  need real ones), tachograph workshop protocol (only a 276 px image), Community licence / ADR / permits (AI
+  only). MRZ Z vs 2 cannot be told apart by tesseract (OCR-B): the AI and validators cover it. Portrait crop
+  exists (`portrait.py`) but is not wired (the user dropped the driver-dossier idea).
   Order/CMR/T1/T2 documents belong to the future order-service.
