@@ -11,6 +11,7 @@ import jsonschema
 import ai_client
 import kafka_client
 import level1
+import quality
 import s3_client
 import schemas
 
@@ -55,9 +56,12 @@ def _normalize_completed(extraction_id: str, tool_input: dict) -> dict:
     }
 
 
-def _try_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set[str]):
+def _try_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set[str], image_quality: float = 1.0):
     """A Level-1 crash must never lose the request — log it and let the AI
-    tier have a go."""
+    tier have a go. A low-quality photo skips Level 1: OCR that misreads
+    consistently still produces confident votes."""
+    if image_quality < quality.LOW_QUALITY:
+        return None
     try:
         return level1.extract(file_bytes, mime_type, allowed_codes)
     except Exception as error:  # noqa: BLE001
@@ -86,7 +90,8 @@ def handle_extraction_requested(body: dict) -> None:
         _publish_failed(extraction_id, "DOC_FILE_NOT_FOUND")
         return
 
-    local = _try_level1(file_bytes, mime_type, {t["code"] for t in allowed_types})
+    image_quality = quality.score_bytes(file_bytes)
+    local = _try_level1(file_bytes, mime_type, {t["code"] for t in allowed_types}, image_quality)
     if local:
         completed_body = {
             "extraction_id": extraction_id,
@@ -116,6 +121,9 @@ def handle_extraction_requested(body: dict) -> None:
         return
 
     completed_body = _normalize_completed(extraction_id, result["tool_input"])
+    completed_body["confidence"], completed_body["readability_score"] = quality.cap(
+        completed_body["confidence"], completed_body["readability_score"], image_quality
+    )
     try:
         jsonschema.validate(completed_body, schemas.DOC_EXTRACTION_COMPLETED_BODY)
     except jsonschema.ValidationError as error:
