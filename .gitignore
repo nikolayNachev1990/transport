@@ -19,3 +19,9 @@ company-service/core
 fleet-service/core
 
 .DS_Store
+
+# tester document corpora — local only. `private/` holds real customer
+# documents (personal data, GDPR) and must never be committed; `documents/`
+# is ~135 MB of downloaded specimens with mixed licences.
+tester/fixtures/private/
+tester/fixtures/documents/
