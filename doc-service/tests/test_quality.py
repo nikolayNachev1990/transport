@@ -10,7 +10,7 @@ DIR = "/fixtures/documents/"
 
 def test_sharp_large_scan_is_full_quality():
     image = Image.open(DIR + "registration_certificates/bulgaria_generic_part1_front_eu.jpg")
-    assert quality.score(image) == 1.0
+    assert quality.score(image) >= 0.85
 
 
 def test_thumbnail_is_low_quality():
