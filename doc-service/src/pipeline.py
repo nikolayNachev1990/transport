@@ -244,3 +244,12 @@ def handle_extraction_requested(body: dict) -> None:
         }
         jsonschema.validate(usage_body, schemas.DOC_AI_USAGE_RECORDED_BODY)
         kafka_client.send("doc.ai_usage.recorded", usage_body)
+
+
+def report_fatal(job, error: Exception) -> None:
+    """A request whose handler crashed twice: tell fleet-service instead of
+    leaving the extraction 'queued' forever."""
+    extraction_id = (job.body or {}).get("extraction_id")
+    print(f"pipeline: giving up on {extraction_id}: {error}")
+    if extraction_id:
+        _publish_failed(extraction_id, "DOC_INTERNAL_ERROR")

@@ -97,17 +97,22 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
     for page in document.pages[:3]:
         if page.image is None or already_strong:
             continue
-        for image_parser, plausible in IMAGE_PARSERS:
+        # The loader's single OCR pass already says which parsers are worth
+        # their ~10 passes: try those first, and only when they found nothing
+        # try the rest — a photo may have no readable text at all (a card on a
+        # dark table, an MRZ), and PDF pages are printed documents that never
+        # need the rest.
+        ordered = sorted(IMAGE_PARSERS, key=lambda pair: not pair[1](page.text))
+        page_found = 0
+        for image_parser, plausible in ordered:
             if time.monotonic() > deadline:
                 print("level1: time budget spent, skipping remaining parsers")
                 break
-            # A photo may have no readable text at all (a card on a dark table,
-            # an MRZ), so it always gets every parser; PDF pages are printed
-            # documents whose cheap text says which parser is worth running.
-            if document.kind != "image" and not plausible(page.text):
+            if not plausible(page.text) and (document.kind != "image" or page_found):
                 continue
             if parsed := image_parser(page.image):
                 attempts.append(parsed)
+                page_found += 1
 
     partial = None
     partial_solid = 0

@@ -535,6 +535,9 @@ services:
       AI_REQUEST_TIMEOUT_SECONDS: ${AI_REQUEST_TIMEOUT_SECONDS}
       AI_MAX_RETRIES: ${AI_MAX_RETRIES}
       OCR_LANGUAGES: ${OCR_LANGUAGES}
+      DOC_WORKERS: ${DOC_WORKERS}
+      DOC_PER_COMPANY_MAX: ${DOC_PER_COMPANY_MAX}
+      DOC_MAX_BUFFER: ${DOC_MAX_BUFFER}
 
 # Auth Service  :::::::::::::::::::::::::::::::::::::::::::::::::::
   auth-service:

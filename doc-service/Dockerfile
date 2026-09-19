@@ -8,6 +8,9 @@ WORKDIR /usr/app
 # The source dir is bind-mounted in development; bytecode written by the
 # (root) container would end up root-owned on the host.
 ENV PYTHONDONTWRITEBYTECODE=1
+# tesseract would otherwise spawn a thread per core inside every worker; with
+# several workers that oversubscribes the CPU and makes each OCR pass slower.
+ENV OMP_THREAD_LIMIT=1
 # curl: docker-compose's healthcheck for this service runs `curl` inside
 # the container, same as every Node service here.
 # tesseract + language packs: Level-1 OCR (SPEC-doc-service.md §4.1).

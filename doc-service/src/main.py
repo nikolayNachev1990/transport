@@ -1,7 +1,7 @@
 import config  # noqa: F401 — imported first so a missing env var fails fast, before anything else starts
 import health
 import kafka_client
-from pipeline import handle_extraction_requested
+from pipeline import handle_extraction_requested, report_fatal
 
 TOPIC_HANDLERS = {
     "fleet.extraction.requested": handle_extraction_requested,
@@ -19,7 +19,7 @@ def _dispatch(topic: str, body: dict) -> None:
 def main() -> None:
     health.start_in_background()
     print(f"doc-service: consuming {list(TOPIC_HANDLERS.keys())}")
-    kafka_client.consume_forever(list(TOPIC_HANDLERS.keys()), _dispatch)
+    kafka_client.consume_forever(list(TOPIC_HANDLERS.keys()), _dispatch, report_fatal)
 
 
 if __name__ == "__main__":

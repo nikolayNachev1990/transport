@@ -43,3 +43,10 @@ AI_MAX_RETRIES = int(_optional("AI_MAX_RETRIES", "2"))
 APP_PORT = int(_optional("APP_PORT", "80"))
 
 OCR_LANGUAGES = _optional("OCR_LANGUAGES", "bul+eng")
+
+# Work queue (dispatcher.py). Workers are threads: OCR runs tesseract as a
+# subprocess and the AI call is network I/O. Each worker can hold a decoded
+# photo (~80 MB at most), so raise DOC_SERVICE_RAM_MAX with DOC_WORKERS.
+WORKERS = int(_optional("DOC_WORKERS", "2"))
+PER_COMPANY_MAX = int(_optional("DOC_PER_COMPANY_MAX", "2"))
+MAX_BUFFER = int(_optional("DOC_MAX_BUFFER", "40"))
