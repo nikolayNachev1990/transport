@@ -102,8 +102,15 @@ def _types_block(allowed_types: list[dict]) -> str:
     )
 
 
-def _request_text(hints: dict) -> str:
-    return f"Caller-supplied hints (may be empty; a suggestion, not ground truth): {json.dumps(hints or {})}"
+def _request_text(hints: dict, local_hint: dict | None = None) -> str:
+    text = f"Caller-supplied hints (may be empty; a suggestion, not ground truth): {json.dumps(hints or {})}"
+    if local_hint:
+        text += (
+            "\n\nA local OCR pass already read the following from this file. It is UNVERIFIED and may contain "
+            "errors (a dropped digit, Z read as 2, O as 0). Check every value against the image itself and "
+            f"report what you actually see, correcting the OCR where it is wrong: {json.dumps(local_hint, ensure_ascii=False)}"
+        )
+    return text
 
 
 def _content_block(file_bytes: bytes, mime_type: str) -> dict:
@@ -115,7 +122,7 @@ def _content_block(file_bytes: bytes, mime_type: str) -> dict:
     raise UnsupportedMimeTypeError(mime_type)
 
 
-def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints: dict) -> dict:
+def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints: dict, local_hint: dict | None = None) -> dict:
     """Returns tool_input plus token counts, cache reads/writes reported separately (they are priced differently)."""
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY, timeout=config.AI_REQUEST_TIMEOUT_SECONDS)
     allowed_type_codes = [t["code"] for t in allowed_types]
@@ -131,7 +138,7 @@ def extract(file_bytes: bytes, mime_type: str, allowed_types: list[dict], hints:
                 system=system,
                 tools=[_tool_schema(allowed_type_codes)],
                 tool_choice={"type": "tool", "name": TOOL_NAME},
-                messages=[{"role": "user", "content": [content_block, {"type": "text", "text": _request_text(hints)}]}],
+                messages=[{"role": "user", "content": [content_block, {"type": "text", "text": _request_text(hints, local_hint)}]}],
             )
         except (anthropic.APITimeoutError, anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as error:
             last_error = error

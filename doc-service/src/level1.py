@@ -46,11 +46,21 @@ def _sufficient(type_code: str, parsed: registration.ParseResult) -> bool:
     return all(values.get(name) and parsed.confidence.get(name, 0) >= MIN_FIELD_CONFIDENCE for name in required)
 
 
-def extract(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[str]) -> Level1Result | None:
+class Analysis:
+    """What Level 1 made of a file: `result` when every required field is
+    confident (the AI can be skipped), otherwise `partial` — the best
+    attempt for an allowed type, handed to the AI as an unverified hint."""
+
+    def __init__(self, result: Level1Result | None = None, partial: registration.ParseResult | None = None):
+        self.result = result
+        self.partial = partial
+
+
+def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[str]) -> Analysis:
     try:
         document = loader.load(file_bytes, mime_type)
     except loader.UnsupportedFormatError:
-        return None
+        return Analysis()
 
     attempts: list[registration.ParseResult] = []
     native_texts = [page.text for page in document.pages if page.source == "native"]
@@ -67,12 +77,18 @@ def extract(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
             if parsed := image_parser(page.image):
                 attempts.append(parsed)
 
+    partial = None
     for parsed in attempts:
         if parsed.type_code not in allowed_type_codes:
             continue
-        if not _sufficient(parsed.type_code, parsed):
-            print(f"level1: {parsed.type_code} found but not confident enough, confidences={parsed.confidence}")
-            continue
-        readability = round(sum(parsed.confidence.values()) / len(parsed.confidence), 3)
-        return Level1Result(parsed.type_code, parsed.fields, parsed.subject, parsed.confidence, readability)
-    return None
+        if _sufficient(parsed.type_code, parsed):
+            readability = round(sum(parsed.confidence.values()) / len(parsed.confidence), 3)
+            return Analysis(result=Level1Result(parsed.type_code, parsed.fields, parsed.subject, parsed.confidence, readability))
+        print(f"level1: {parsed.type_code} found but not confident enough, confidences={parsed.confidence}")
+        if partial is None or len(parsed.confidence) > len(partial.confidence):
+            partial = parsed
+    return Analysis(partial=partial)
+
+
+def extract(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[str]) -> Level1Result | None:
+    return analyze(file_bytes, mime_type, allowed_type_codes).result

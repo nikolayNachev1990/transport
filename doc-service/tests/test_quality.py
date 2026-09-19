@@ -39,4 +39,5 @@ def test_cap_never_raises_confidence_and_lowers_readability():
 
 
 def test_low_quality_skips_level1():
-    assert pipeline._try_level1(b"irrelevant", "image/jpeg", {"registration_certificate"}, 0.3) is None
+    analysis = pipeline._analyze_level1(b"irrelevant", "image/jpeg", {"registration_certificate"}, 0.3)
+    assert analysis.result is None and analysis.partial is None

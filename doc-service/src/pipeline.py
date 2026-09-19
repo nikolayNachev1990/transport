@@ -10,6 +10,7 @@ import jsonschema
 
 import ai_client
 import kafka_client
+import hybrid
 import level1
 import quality
 import s3_client
@@ -56,17 +57,18 @@ def _normalize_completed(extraction_id: str, tool_input: dict) -> dict:
     }
 
 
-def _try_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set[str], image_quality: float = 1.0):
+def _analyze_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set[str], image_quality: float = 1.0) -> level1.Analysis:
     """A Level-1 crash must never lose the request — log it and let the AI
-    tier have a go. A low-quality photo skips Level 1: OCR that misreads
-    consistently still produces confident votes."""
+    tier have a go. A low-quality photo skips Level 1 entirely: OCR that
+    misreads consistently still produces confident votes, and its reading
+    would only mislead the AI as a hint."""
     if image_quality < quality.LOW_QUALITY:
-        return None
+        return level1.Analysis()
     try:
-        return level1.extract(file_bytes, mime_type, allowed_codes)
+        return level1.analyze(file_bytes, mime_type, allowed_codes)
     except Exception as error:  # noqa: BLE001
         print(f"pipeline: level1 failed, falling back to AI: {error}")
-        return None
+        return level1.Analysis()
 
 
 def handle_extraction_requested(body: dict) -> None:
@@ -91,7 +93,8 @@ def handle_extraction_requested(body: dict) -> None:
         return
 
     image_quality = quality.score_bytes(file_bytes)
-    local = _try_level1(file_bytes, mime_type, {t["code"] for t in allowed_types}, image_quality)
+    analysis = _analyze_level1(file_bytes, mime_type, {t["code"] for t in allowed_types}, image_quality)
+    local = analysis.result
     if local:
         completed_body = {
             "extraction_id": extraction_id,
@@ -107,7 +110,7 @@ def handle_extraction_requested(body: dict) -> None:
         return
 
     try:
-        result = ai_client.extract(file_bytes, mime_type, allowed_types, hints)
+        result = ai_client.extract(file_bytes, mime_type, allowed_types, hints, hybrid.hint_for_prompt(analysis.partial) if analysis.partial else None)
     except ai_client.UnsupportedMimeTypeError:
         _publish_failed(extraction_id, "DOC_UNSUPPORTED_MIME")
         return
@@ -120,7 +123,10 @@ def handle_extraction_requested(body: dict) -> None:
         _publish_failed(extraction_id, "DOC_AI_UNAVAILABLE")
         return
 
-    completed_body = _normalize_completed(extraction_id, result["tool_input"])
+    tool_input = hybrid.merge(result["tool_input"], analysis.partial) if analysis.partial else result["tool_input"]
+    completed_body = _normalize_completed(extraction_id, tool_input)
+    if analysis.partial:
+        completed_body["engine"] = "hybrid"
     completed_body["confidence"], completed_body["readability_score"] = quality.cap(
         completed_body["confidence"], completed_body["readability_score"], image_quality
     )
