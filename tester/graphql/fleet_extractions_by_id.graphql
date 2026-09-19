@@ -1,0 +1,13 @@
+query tester_fleet_extractions_by_id($id: uuid!) {
+  fleet_extractions(where: { id: { _eq: $id } }) {
+    id
+    status
+    detected_type_code
+    matched_vehicle_id
+    matched_trailer_id
+    matched_driver_user_id
+    readability_score
+    error_code
+    version
+  }
+}

@@ -73,7 +73,10 @@ S3_BUCKET                       # същия бъкет като upload-service
 S3_REGION
 S3_ENDPOINT_IN_DOCKER           # вътрешен docker network endpoint
 ANTHROPIC_API_KEY
-ANTHROPIC_MODEL                 # напр. "claude-opus-5" — фиксиран модел, не "latest"-alias
+ANTHROPIC_MODEL                 # default "claude-haiku-4-5-20251001" — фиксиран модел, не
+                                 # "latest"-alias; структурирано извличане на печатен текст
+                                 # не изисква по-скъп tier, но е сменяем без промяна в кода
+                                 # ако точността се окаже недостатъчна за конкретен тип документ
 AI_REQUEST_TIMEOUT_SECONDS      # default 30
 AI_MAX_RETRIES                  # default 2 (общо до 3 опита)
 OCR_LANGUAGES                   # default "bul+eng" — tesseract language pack кодове

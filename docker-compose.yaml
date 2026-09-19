@@ -479,6 +479,56 @@ services:
       POSTGRES_USER: ${FLEET_DB_USER}
       POSTGRES_PASSWORD: ${FLEET_DB_PASS}
 
+# Doc Service (Python) — recognition/extraction, see SPEC-doc-service.md.
+# No database of its own — stateless (§8), no core/Events/langs mount
+# either (Python, not part of the Node package tree).
+  doc-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./doc-service/Dockerfile
+      target: ${DOCKER_MODE}
+    volumes:
+      - ./doc-service:/usr/app
+      - /usr/app/__pycache__
+    expose:
+      - 80
+    healthcheck:
+      test: curl -sS ${HEALTHCHECK_SERVICE_URL}|| exit 1
+      interval: ${HEALTHCHECK_SERVICE_INTERVAL}
+      timeout: ${HEALTHCHECK_SERVICE_TIMEOUT}
+      retries: ${HEALTHCHECK_SERVICE_RETRIES}
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: ${DOC_SERVICE_RAM_MAX}
+        reservations:
+          memory: ${DOC_SERVICE_RAM_RESERVED}
+    networks:
+      - ${NETWORK_MAIN_NAME}
+    environment:
+      APP_PORT: 80
+      KAFKA_BROKERS_HOSTS: ${KAFKA_BROKERS_HOSTS}
+      DOC_KAFKA_GROUP: ${DOC_KAFKA_GROUP}
+      DOC_KAFKA_GROUP_ID: ${DOC_KAFKA_GROUP_ID}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ENDPOINT_IN_DOCKER: ${S3_ENDPOINT_IN_DOCKER}
+      DOC_S3_ACCESS_KEY: ${DOC_S3_ACCESS_KEY}
+      DOC_S3_SECRET_KEY: ${DOC_S3_SECRET_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
+      AI_REQUEST_TIMEOUT_SECONDS: ${AI_REQUEST_TIMEOUT_SECONDS}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES}
+      OCR_LANGUAGES: ${OCR_LANGUAGES}
+
 # Auth Service  :::::::::::::::::::::::::::::::::::::::::::::::::::
   auth-service:
     restart: unless-stopped
@@ -861,6 +911,10 @@ services:
 
   # minio setup: creates the bucket upload-service writes to, once — an
   # actual S3/R2 bucket in production is provisioned by hand, not by this.
+  # Also provisions a read-only user for doc-service (SPEC-doc-service.md
+  # §7 — it only ever needs GetObject, never Put/Delete/List, since
+  # upload-service owns writes) — a scoped IAM key in production, this is
+  # the closest local equivalent.
   minio-setup:
     container_name: minio-setup
     image: minio/mc
@@ -873,6 +927,10 @@ services:
       /bin/sh -c "
       /usr/bin/mc alias set myminio ${MINIO_S3_END_POINT_IN_DOCKER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
       /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME};
+      echo '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::${MINIO_BUCKET_NAME}/*\"]}]}' > /tmp/doc-service-readonly.json;
+      /usr/bin/mc admin policy create myminio doc-service-readonly /tmp/doc-service-readonly.json;
+      /usr/bin/mc admin user add myminio ${DOC_S3_ACCESS_KEY} ${DOC_S3_SECRET_KEY};
+      /usr/bin/mc admin policy attach myminio doc-service-readonly --user ${DOC_S3_ACCESS_KEY};
       exit 0;
       "
 

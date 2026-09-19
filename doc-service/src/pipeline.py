@@ -1,0 +1,112 @@
+"""Orchestrates one fleet.extraction.requested -> doc.extraction.completed
+or doc.extraction.failed (+ doc.ai_usage.recorded on a real AI call).
+Etap 1 (SPEC-doc-service.md §11): Level 2 (AI) only — no local OCR/
+template parsers built yet, so every request goes straight to ai_client.
+"""
+import datetime
+
+import jsonschema
+
+import ai_client
+import kafka_client
+import s3_client
+import schemas
+
+# Rough $/million-token rates — informational only (doc.ai_usage.recorded
+# is a reporting signal, not a billing source of truth). Verify against
+# https://www.anthropic.com/pricing before relying on this for anything
+# that touches real invoicing.
+MODEL_PRICING_PER_MTOK = {
+    "claude-opus-5": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-5": {"input": 3.0, "output": 15.0},
+    "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+}
+# Falls back to Haiku-tier pricing, not Sonnet/Opus — the default model
+# (ANTHROPIC_MODEL) is Haiku, so an unrecognized model string is far more
+# likely to be a newer/renamed Haiku than a pricier tier.
+DEFAULT_PRICING = MODEL_PRICING_PER_MTOK["claude-haiku-4-5-20251001"]
+
+
+def _estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    pricing = MODEL_PRICING_PER_MTOK.get(model, DEFAULT_PRICING)
+    return round((input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing["output"], 6)
+
+
+def _publish_failed(extraction_id: str, error_code: str) -> None:
+    body = {"extraction_id": extraction_id, "error_code": error_code}
+    jsonschema.validate(body, schemas.DOC_EXTRACTION_FAILED_BODY)
+    kafka_client.send("doc.extraction.failed", body)
+
+
+def _normalize_completed(extraction_id: str, tool_input: dict) -> dict:
+    fields = tool_input.get("fields") or {}
+    return {
+        "extraction_id": extraction_id,
+        "engine": "ai",
+        "detected_type_code": tool_input.get("detected_type_code"),
+        "detected_subject": tool_input.get("detected_subject") or None,
+        "fields": fields,
+        "confidence": tool_input.get("confidence") or None,
+        "readability_score": tool_input.get("readability_score"),
+    }
+
+
+def handle_extraction_requested(body: dict) -> None:
+    try:
+        jsonschema.validate(body, schemas.FLEET_EXTRACTION_REQUESTED_BODY)
+    except jsonschema.ValidationError as error:
+        print(f"pipeline: fleet.extraction.requested failed local validation: {error.message}")
+        return
+
+    extraction_id = body["extraction_id"]
+    company_id = body["company_id"]
+    file_key = body["file_key"]
+    mime_type = body["mime_type"]
+    allowed_types = body["allowed_types"]
+    hints = body["hints"]
+
+    try:
+        file_bytes = s3_client.get_object_bytes(file_key)
+    except Exception as error:  # noqa: BLE001
+        print(f"pipeline: could not fetch '{file_key}' from S3: {error}")
+        _publish_failed(extraction_id, "DOC_FILE_NOT_FOUND")
+        return
+
+    try:
+        result = ai_client.extract(file_bytes, mime_type, allowed_types, hints)
+    except ai_client.UnsupportedMimeTypeError:
+        _publish_failed(extraction_id, "DOC_UNSUPPORTED_MIME")
+        return
+    except ai_client.AIInvalidResponseError as error:
+        print(f"pipeline: AI returned an invalid response for {extraction_id}: {error}")
+        _publish_failed(extraction_id, "DOC_AI_INVALID_RESPONSE")
+        return
+    except ai_client.AIUnavailableError as error:
+        print(f"pipeline: AI unavailable for {extraction_id}: {error}")
+        _publish_failed(extraction_id, "DOC_AI_UNAVAILABLE")
+        return
+
+    completed_body = _normalize_completed(extraction_id, result["tool_input"])
+    try:
+        jsonschema.validate(completed_body, schemas.DOC_EXTRACTION_COMPLETED_BODY)
+    except jsonschema.ValidationError as error:
+        # Our own normalization produced something that doesn't match the
+        # contract — a doc-service bug, not a bad AI response. Fail loudly
+        # rather than publish something fleet-service will also reject.
+        print(f"pipeline: normalized result failed local validation for {extraction_id}: {error.message}")
+        _publish_failed(extraction_id, "DOC_AI_INVALID_RESPONSE")
+        return
+
+    kafka_client.send("doc.extraction.completed", completed_body)
+
+    usage_body = {
+        "extraction_id": extraction_id,
+        "company_id": company_id,
+        "model": ai_client.config.ANTHROPIC_MODEL,
+        "input_tokens": result["input_tokens"],
+        "output_tokens": result["output_tokens"],
+        "estimated_cost_usd": _estimate_cost_usd(ai_client.config.ANTHROPIC_MODEL, result["input_tokens"], result["output_tokens"]),
+        "occurred_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    jsonschema.validate(usage_body, schemas.DOC_AI_USAGE_RECORDED_BODY)
+    kafka_client.send("doc.ai_usage.recorded", usage_body)
