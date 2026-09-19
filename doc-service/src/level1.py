@@ -11,10 +11,11 @@ import io
 from PIL import Image
 
 import loader
-from parsers import licence, registration
+from parsers import inspection_bg, licence, registration
 
 MIN_FIELD_CONFIDENCE = 0.7
-IMAGE_PARSERS = (registration.parse_image, licence.parse_image)
+IMAGE_PARSERS = (registration.parse_image, licence.parse_image, inspection_bg.parse_image)
+TEXT_PARSERS = (inspection_bg.parse_texts,)
 
 # Fields that must be present and confident before a type may skip the AI.
 REQUIRED = {
@@ -23,6 +24,8 @@ REQUIRED = {
     "driving_licence": ("document_number", "valid_to", "driver_name"),
     "cpc_card": ("document_number", "valid_to", "driver_name"),
     "tachograph_card": ("document_number", "valid_to", "driver_name"),
+    "technical_inspection": ("document_number", "valid_to", "registration_number"),
+    "technical_inspection_trailer": ("document_number", "valid_to", "registration_number"),
 }
 
 
@@ -49,18 +52,27 @@ def extract(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
     except loader.UnsupportedFormatError:
         return None
 
-    # Only image-based parsers exist so far; text formats (native PDF, docx,
-    # xlsx) get their own text parsers in a later etap and fall through.
-    if document.kind != "image":
-        return None
-    image: Image.Image = document.pages[0].image
-    for parser in IMAGE_PARSERS:
-        parsed = parser(image)
-        if not parsed or parsed.type_code not in allowed_type_codes:
+    attempts: list[registration.ParseResult] = []
+    native_texts = [page.text for page in document.pages if page.source == "native"]
+    if native_texts:
+        for text_parser in TEXT_PARSERS:
+            if parsed := text_parser(native_texts):
+                attempts.append(parsed)
+    # Photos, and PDF pages that had no text layer (rendered to an image by
+    # the loader). Three pages is plenty for these single-sheet documents.
+    for page in document.pages[:3]:
+        if page.image is None:
+            continue
+        for image_parser in IMAGE_PARSERS:
+            if parsed := image_parser(page.image):
+                attempts.append(parsed)
+
+    for parsed in attempts:
+        if parsed.type_code not in allowed_type_codes:
             continue
         if not _sufficient(parsed.type_code, parsed):
             print(f"level1: {parsed.type_code} found but not confident enough, confidences={parsed.confidence}")
-            return None
+            continue
         readability = round(sum(parsed.confidence.values()) / len(parsed.confidence), 3)
         return Level1Result(parsed.type_code, parsed.fields, parsed.subject, parsed.confidence, readability)
     return None
