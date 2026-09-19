@@ -73,7 +73,7 @@ def _assemble(votes: dict[str, Counter], per_vote_weight: int, total_variants: i
         return None
 
     trailer = bool(category and category[0].startswith("O"))
-    result = ParseResult(type_code="technical_inspection_trailer" if trailer else "technical_inspection")
+    result = ParseResult(type_code="technical_inspection_trailer" if trailer else "technical_inspection", type_evidence_strong=True)
     attributes: dict = {}
     if protocol:
         result.fields["document_number"] = protocol[0]
@@ -119,3 +119,7 @@ def parse_texts(texts: list[str]) -> ParseResult | None:
 def parse_image(image: Image.Image) -> ParseResult | None:
     """Photo/scan: several OCR preprocessings, values voted."""
     return _vote(ocr.text_variants(ocr.normalize_size(image, 1600), thresholds=(0, 110, 130, 150, 170), psms=(6, 4)), per_vote_weight=1)
+
+
+def plausible(text: str) -> bool:
+    return bool(TITLE.search(text)) or len(_candidates(text)) >= 2

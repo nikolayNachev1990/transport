@@ -200,3 +200,8 @@ def parse_image(image: Image.Image) -> ParseResult | None:
         "authority": best.get("authority", (None,))[0],
     }
     return result
+
+
+def plausible(text: str) -> bool:
+    """Numbered-field layout: at least two field labels already visible."""
+    return sum(1 for line in text.splitlines() for _ in _LABEL_AT.finditer(line)) >= 2

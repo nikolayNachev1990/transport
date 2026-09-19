@@ -26,6 +26,10 @@ class ParseResult:
     subject: dict = field(default_factory=dict)
     confidence: dict = field(default_factory=dict)
     extras: dict = field(default_factory=dict)  # not part of the event contract; kept for tests/debugging
+    # True when the document type was recognised from its own printed words
+    # (a standard number, a title), not inferred from OCR'd values: such a
+    # reading is worth handing to the AI as a hint even with shaky field votes.
+    type_evidence_strong: bool = False
 
 
 def _vin_candidates(votes) -> dict[str, int]:
@@ -126,3 +130,16 @@ def parse_image(image: Image.Image) -> ParseResult | None:
         "issue_date": dates[-1][0].isoformat() if len(dates) >= 2 else None,
     }
     return result
+
+
+_REG_WORDS = re.compile(r"registration\s+certificate|свидетелство\s+за\s+регистрация|zulassungsbescheinigung|certificat\s+d.immatriculation|dowód\s+rejestracyjny|carte\s+grise|libretto\s+di\s+circolazione|permiso\s+de\s+circulaci", re.IGNORECASE)
+
+
+def plausible(text: str) -> bool:
+    """Cheap check on already-available text: is a registration certificate
+    worth the ~10 OCR passes of parse_image?"""
+    if _REG_WORDS.search(text) or "<<" in text:
+        return True
+    # a VIN-shaped token on its own (words are not glued together: joined-up
+    # text makes 17-letter runs out of ordinary sentences)
+    return any(len(re.findall(r"\d", token)) >= 4 for token in re.findall(r"(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])", text.upper()))
