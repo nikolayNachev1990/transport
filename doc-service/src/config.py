@@ -31,8 +31,10 @@ S3_REGION = _optional("S3_REGION", "us-east-1")
 S3_ENDPOINT = _required("S3_ENDPOINT_IN_DOCKER")
 
 ANTHROPIC_API_KEY = _required("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = _optional("ANTHROPIC_MODEL", "claude-opus-5")
+ANTHROPIC_MODEL = _optional("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 AI_REQUEST_TIMEOUT_SECONDS = float(_optional("AI_REQUEST_TIMEOUT_SECONDS", "30"))
 AI_MAX_RETRIES = int(_optional("AI_MAX_RETRIES", "2"))
 
 APP_PORT = int(_optional("APP_PORT", "80"))
+
+OCR_LANGUAGES = _optional("OCR_LANGUAGES", "bul+eng")

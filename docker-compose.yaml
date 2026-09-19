@@ -491,6 +491,9 @@ services:
     volumes:
       - ./doc-service:/usr/app
       - /usr/app/__pycache__
+      # The tester's document corpus, read-only — Level-1 parser tests run
+      # inside this container (Python/tesseract live here, not on the host).
+      - ./tester/fixtures:/fixtures:ro
     expose:
       - 80
     healthcheck:

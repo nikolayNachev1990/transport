@@ -1,7 +1,8 @@
 """Orchestrates one fleet.extraction.requested -> doc.extraction.completed
 or doc.extraction.failed (+ doc.ai_usage.recorded on a real AI call).
-Etap 1 (SPEC-doc-service.md §11): Level 2 (AI) only — no local OCR/
-template parsers built yet, so every request goes straight to ai_client.
+Level 1 (local parsers, no AI) runs first; only when it can't return every
+required field with enough confidence does the request go to the AI tier
+(SPEC-doc-service.md §3-§5).
 """
 import datetime
 
@@ -9,6 +10,7 @@ import jsonschema
 
 import ai_client
 import kafka_client
+import level1
 import s3_client
 import schemas
 
@@ -27,9 +29,11 @@ MODEL_PRICING_PER_MTOK = {
 DEFAULT_PRICING = MODEL_PRICING_PER_MTOK["claude-haiku-4-5-20251001"]
 
 
-def _estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+def _estimate_cost_usd(model: str, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0) -> float:
+    """Cache reads bill at 0.1x the input rate, cache writes at 1.25x."""
     pricing = MODEL_PRICING_PER_MTOK.get(model, DEFAULT_PRICING)
-    return round((input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing["output"], 6)
+    input_cost = input_tokens * pricing["input"] + cache_read * pricing["input"] * 0.1 + cache_write * pricing["input"] * 1.25
+    return round((input_cost + output_tokens * pricing["output"]) / 1_000_000, 6)
 
 
 def _publish_failed(extraction_id: str, error_code: str) -> None:
@@ -51,6 +55,16 @@ def _normalize_completed(extraction_id: str, tool_input: dict) -> dict:
     }
 
 
+def _try_level1(file_bytes: bytes, mime_type: str | None, allowed_codes: set[str]):
+    """A Level-1 crash must never lose the request — log it and let the AI
+    tier have a go."""
+    try:
+        return level1.extract(file_bytes, mime_type, allowed_codes)
+    except Exception as error:  # noqa: BLE001
+        print(f"pipeline: level1 failed, falling back to AI: {error}")
+        return None
+
+
 def handle_extraction_requested(body: dict) -> None:
     try:
         jsonschema.validate(body, schemas.FLEET_EXTRACTION_REQUESTED_BODY)
@@ -70,6 +84,21 @@ def handle_extraction_requested(body: dict) -> None:
     except Exception as error:  # noqa: BLE001
         print(f"pipeline: could not fetch '{file_key}' from S3: {error}")
         _publish_failed(extraction_id, "DOC_FILE_NOT_FOUND")
+        return
+
+    local = _try_level1(file_bytes, mime_type, {t["code"] for t in allowed_types})
+    if local:
+        completed_body = {
+            "extraction_id": extraction_id,
+            "engine": "local",
+            "detected_type_code": local.type_code,
+            "detected_subject": local.subject or None,
+            "fields": local.fields,
+            "confidence": local.confidence,
+            "readability_score": local.readability,
+        }
+        jsonschema.validate(completed_body, schemas.DOC_EXTRACTION_COMPLETED_BODY)
+        kafka_client.send("doc.extraction.completed", completed_body)
         return
 
     try:
@@ -103,9 +132,11 @@ def handle_extraction_requested(body: dict) -> None:
         "extraction_id": extraction_id,
         "company_id": company_id,
         "model": ai_client.config.ANTHROPIC_MODEL,
-        "input_tokens": result["input_tokens"],
+        "input_tokens": result["input_tokens"] + result["cache_read_tokens"] + result["cache_write_tokens"],
         "output_tokens": result["output_tokens"],
-        "estimated_cost_usd": _estimate_cost_usd(ai_client.config.ANTHROPIC_MODEL, result["input_tokens"], result["output_tokens"]),
+        "estimated_cost_usd": _estimate_cost_usd(
+            ai_client.config.ANTHROPIC_MODEL, result["input_tokens"], result["output_tokens"], result["cache_read_tokens"], result["cache_write_tokens"]
+        ),
         "occurred_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     jsonschema.validate(usage_body, schemas.DOC_AI_USAGE_RECORDED_BODY)
