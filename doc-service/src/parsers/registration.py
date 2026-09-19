@@ -97,7 +97,10 @@ def parse_image(image: Image.Image) -> ParseResult | None:
 
     vin, vin_confidence = common.vote_strings(_vin_candidates(votes))
     plate, plate_confidence = common.vote_strings(_plate_candidates(votes))
-    if not vin and not plate:
+    # A plate-shaped token alone is not evidence of a registration
+    # certificate (a Russian policy produced one, with confidence 1.0); a
+    # valid 17-character VIN is.
+    if not vin:
         return None
 
     if vin:

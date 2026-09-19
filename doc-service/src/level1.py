@@ -14,6 +14,8 @@ import loader
 from parsers import inspection_bg, licence, registration
 
 MIN_FIELD_CONFIDENCE = 0.7
+MIN_HINT_CONFIDENCE = 0.5
+MIN_HINT_FIELDS = 2
 IMAGE_PARSERS = (registration.parse_image, licence.parse_image, inspection_bg.parse_image)
 TEXT_PARSERS = (inspection_bg.parse_texts,)
 
@@ -78,6 +80,7 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
                 attempts.append(parsed)
 
     partial = None
+    partial_solid = 0
     for parsed in attempts:
         if parsed.type_code not in allowed_type_codes:
             continue
@@ -85,8 +88,11 @@ def analyze(file_bytes: bytes, mime_type: str | None, allowed_type_codes: set[st
             readability = round(sum(parsed.confidence.values()) / len(parsed.confidence), 3)
             return Analysis(result=Level1Result(parsed.type_code, parsed.fields, parsed.subject, parsed.confidence, readability))
         print(f"level1: {parsed.type_code} found but not confident enough, confidences={parsed.confidence}")
-        if partial is None or len(parsed.confidence) > len(partial.confidence):
-            partial = parsed
+        # Only a reading with real substance goes to the AI as a hint; two
+        # shaky fields would just anchor it on a wrong document type.
+        solid = sum(1 for value in parsed.confidence.values() if value >= MIN_HINT_CONFIDENCE)
+        if solid >= MIN_HINT_FIELDS and (partial is None or solid > partial_solid):
+            partial, partial_solid = parsed, solid
     return Analysis(partial=partial)
 
 

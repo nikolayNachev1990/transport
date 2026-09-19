@@ -18,7 +18,7 @@ export default {
     type: "object",
     properties: {
       extraction_id: { type: "string", format: "uuid" },
-      engine: { type: "string", enum: ["local", "ai"] },
+      engine: { type: "string", enum: ["local", "ai", "hybrid"] },
       detected_type_code: nullableString,
       detected_subject: { type: ["object", "null"] },
       fields: { type: "object" },

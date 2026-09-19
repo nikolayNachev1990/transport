@@ -73,3 +73,11 @@ def test_level1_declines_unrelated_image():
 
     data = open("/fixtures/documents/driving_licences/germany_licence_wikipedia.jpg", "rb").read()
     assert level1.extract(data, "image/jpeg", {"registration_certificate"}) is None
+
+
+def test_foreign_policy_is_not_mistaken_for_a_registration_certificate():
+    """A Russian OSAGO photo contains a plate-shaped token and a 9-digit
+    number; that is not a talon and must not come back as one."""
+    image = Image.open("/fixtures/documents/insurance_policies/russia_mtpl_policy_wikimedia.jpg")
+    image.thumbnail((3000, 3000))
+    assert registration.parse_image(image) is None

@@ -494,6 +494,9 @@ services:
       # The tester's document corpus, read-only — Level-1 parser tests run
       # inside this container (Python/tesseract live here, not on the host).
       - ./tester/fixtures:/fixtures:ro
+      # The Node event schemas, read-only: a test compares the Python copies
+      # in src/schemas.py against these so the two can't drift apart silently.
+      - ./Events:/events:ro
     expose:
       - 80
     healthcheck:
