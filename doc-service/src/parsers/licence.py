@@ -111,9 +111,15 @@ def _categories(value: str) -> list[str]:
 
 
 def parse_image(image: Image.Image) -> ParseResult | None:
-    texts = ocr.text_variants(image)
+    texts = ocr.text_variants(ocr.prepare_card(image))
     votes: dict[str, Counter] = {name: Counter() for name in ("surname", "given", "dob", "issue", "expiry", "number", "number_5a", "number_5b", "authority", "categories")}
     kind_votes = Counter(_kind(text) for text in texts)
+    # Fallback when the "5." label itself isn't read: a bare 9-digit token.
+    # Bulgarian licence numbers are exactly 9 digits; the owner id (EGN, field
+    # 4d) is 10, so the two can't be confused.
+    loose_numbers: Counter = Counter()
+    for text in texts:
+        loose_numbers.update({token for token in re.findall(r"(?<!\d)\d{9}(?!\d)", text)})
     for text in texts:
         seen: set[tuple[str, str]] = set()
         for line in text.splitlines():
@@ -151,6 +157,10 @@ def parse_image(image: Image.Image) -> ParseResult | None:
             # scaled down while fewer than 3 runs back the winner — a lone
             # read is not agreement, however unopposed.
             best[name] = (value, round(count / sum(counter.values()) * min(1.0, count / 3), 3))
+    if "number" not in best and loose_numbers:
+        value, count = loose_numbers.most_common(1)[0]
+        if count >= 2:
+            best["number"] = (value, round(count / sum(loose_numbers.values()) * min(1.0, count / 3), 3))
     if not any(name in best for name in ("number", "number_5a", "number_5b", "surname")):
         return None
 

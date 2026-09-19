@@ -7,7 +7,9 @@ signal (SPEC-doc-service.md §4.3).
 from collections import Counter
 
 import pytesseract
-from PIL import Image, ImageFilter, ImageOps
+import re
+
+from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 MRZ_WHITELIST = "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
 MRZ_THRESHOLDS = (110, 120, 130, 140)
@@ -100,3 +102,55 @@ def text_variants(image: Image.Image, scale: int = 2, thresholds=(0, 110, 130, 1
         for psm in psms:
             texts.append(pytesseract.image_to_string(prepared, lang=lang, config=f"--psm {psm}"))
     return texts
+
+
+_DATE_LIKE = re.compile(r"\d{2}[.,/-]\d{2}[.,/-]\d{2,4}")
+_FIELD_LABEL = re.compile(r"(?<![\w.])(?:[1-9]|4\s?[a-f]|5\s?[ab])\s?[.,:)]")
+
+
+def crop_to_card(image: Image.Image) -> Image.Image:
+    """A card photographed on a dark table: keep only the bright region.
+    Bounding box of pixels brighter than the image mean; if that is almost
+    the whole frame (a flat scan) or almost nothing, the image is left alone."""
+    gray = ImageOps.grayscale(image)
+    ratio = 256 / max(gray.size)
+    small = gray.resize((max(1, round(gray.width * ratio)), max(1, round(gray.height * ratio))))
+    threshold = ImageStat.Stat(small).mean[0]
+    box = small.point(lambda p: 255 if p > threshold else 0).getbbox()
+    if not box:
+        return image
+    covered = (box[2] - box[0]) * (box[3] - box[1]) / (small.width * small.height)
+    if covered > 0.85 or covered < 0.15:
+        return image
+    margin = 0.02 * max(small.size)
+    left, top = max(box[0] - margin, 0) / ratio, max(box[1] - margin, 0) / ratio
+    right, bottom = min(box[2] + margin, small.width) / ratio, min(box[3] + margin, small.height) / ratio
+    return image.crop((round(left), round(top), round(right), round(bottom)))
+
+
+def _orientation_score(image: Image.Image) -> int:
+    """How much sensible text a quick OCR pass finds: field labels and dates
+    weigh heavily (they only appear when the text is upright)."""
+    small = normalize_size(ImageOps.grayscale(image), 1100)
+    text = pytesseract.image_to_string(small, lang="eng+bul", config="--psm 6")
+    return 4 * len(_FIELD_LABEL.findall(text)) + 6 * len(_DATE_LIKE.findall(text)) + len(re.findall(r"[A-Za-zА-я]{4,}", text))
+
+
+def auto_rotate(image: Image.Image) -> Image.Image:
+    """Try the four right-angle rotations and keep the one that reads best.
+    The upright original is kept unless another turn is clearly better —
+    a flat A4 scan should never be rotated on a tie."""
+    upright = _orientation_score(image)
+    if upright >= 40:
+        return image
+    best_image, best_score = image, upright
+    for angle in (90, 270, 180):
+        turned = image.rotate(angle, expand=True)
+        score = _orientation_score(turned)
+        if score > best_score:
+            best_image, best_score = turned, score
+    return best_image if best_score >= upright + 6 and best_score >= 1.5 * upright else image
+
+
+def prepare_card(image: Image.Image) -> Image.Image:
+    return auto_rotate(crop_to_card(image))
